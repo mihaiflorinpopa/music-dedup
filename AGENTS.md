@@ -9,7 +9,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - `osascript -l JavaScript Resources/scan.js` and `Resources/library.js` print, as JSON, what the app reads from Music. They change nothing.
 - Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist. Test `collect.js` with a throwaway playlist name, never "Music Dedup: Duplicates", and delete that playlist afterwards.
 - zsh doesn't split unquoted variables into words, so `$IDS` reaches a script as one argument. Pass database IDs as separate arguments (or `${=IDS}`).
-- Universal builds made with Xcode 27 (Swift 6.4) record `sdk 14.0`, the deployment target, and warn that x86_64 is deprecated. CI (Xcode 26) records the real SDK and checks it.
+- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` passes the real SDK to the linker with `-platform_version` and fails if the binary records anything else; CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
 
 ## Layout
 
