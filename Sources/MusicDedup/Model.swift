@@ -64,6 +64,23 @@ final class Model {
     }
 
     /// Persistent IDs of the playlists left out of the results.
+    /// Pairs marked "Not a Duplicate", stored as "smaller-larger" database IDs.
+    var notDuplicates: Set<TrackPair> {
+        get {
+            access(keyPath: \.notDuplicates)
+            return Set((defaults.stringArray(forKey: "notDuplicates") ?? []).compactMap { pair in
+                let ids = pair.split(separator: "-").compactMap { Int($0) }
+                return ids.count == 2 ? TrackPair(ids[0], ids[1]) : nil
+            })
+        }
+        set {
+            withMutation(keyPath: \.notDuplicates) {
+                defaults.set(newValue.map { "\($0.first)-\($0.second)" }.sorted(), forKey: "notDuplicates")
+            }
+            analyze()
+        }
+    }
+
     var skipped: Set<String> {
         get {
             access(keyPath: \.skipped)
@@ -133,7 +150,8 @@ final class Model {
     }
 
     private var options: MatchOptions {
-        MatchOptions(ignoreVersionTags: ignoreVersionTags, foldText: foldText, anyCreditedArtist: anyCreditedArtist, tolerance: tolerance)
+        MatchOptions(ignoreVersionTags: ignoreVersionTags, foldText: foldText, anyCreditedArtist: anyCreditedArtist, tolerance: tolerance,
+                     notDuplicates: notDuplicates)
     }
 
     private func analyze() {

@@ -88,6 +88,12 @@ struct ContentView: View {
                 Section {
                     ForEach(dups, id: \.index) { d in
                         Toggle(isOn: isSelected(d)) { TrackRow(track: d.track, position: d.index, detail: repeats(d)) }
+                            .contextMenu {
+                                // The same track twice is always a duplicate; only different tracks can be kept apart.
+                                if let original = d.original, original.id != d.track.id {
+                                    Button("Not a Duplicate") { model.notDuplicates.insert(TrackPair(d.track.id, original.id)) }
+                                }
+                            }
                     }
                 } header: {
                     HStack {
@@ -165,6 +171,9 @@ struct ContentView: View {
                             // Same album name: Music reports nothing that tells these copies apart.
                             LibraryRow(title: song.album, song: song, playlists: model.inPlaylists[song.id] ?? [],
                                        detailPrefix: song.album == copies[0].album ? "Same album as the copy kept" : nil)
+                        }
+                        .contextMenu {
+                            Button("Not a Duplicate") { model.notDuplicates.insert(TrackPair(song.id, copies[0].id)) }
                         }
                     }
                 } header: {

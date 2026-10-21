@@ -13,7 +13,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 
 ## Layout
 
-- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
+- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance, and the `TrackPair`s marked Not a Duplicate) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
 - `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `Updater` (Sparkle).
 - `Resources/`: Info.plist, `Credits.rtf` (the About panel's credits, with Sparkle's credit and Apple's trademark notice), `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
 

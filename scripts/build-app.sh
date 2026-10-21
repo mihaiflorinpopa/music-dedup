@@ -3,14 +3,20 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-# macOS gives an app the look and behavior of the SDK its binary records. Swift Build, the
-# default build system from Swift 6.4 (Xcode 27), records the deployment target instead, so the
-# app drew its tabs like macOS 14. Tell the linker the real SDK (man ld: -platform_version).
-# 14.0 is the deployment target in Package.swift.
 SDK="$(xcrun --show-sdk-version)"
-set -- -c release --arch arm64 --arch x86_64 -Xlinker -platform_version -Xlinker macos -Xlinker 14.0 -Xlinker "$SDK"
+set -- -c release --arch arm64 --arch x86_64
 swift build "$@"
 BIN="$(swift build "$@" --show-bin-path)"
+# macOS gives an app the look and behavior of the SDK its binary records. Swift Build, the
+# default build system from Swift 6.4 (Xcode 27), records the deployment target instead, and
+# the app then draws its tabs like macOS 14. If so, relink with the real SDK (man ld:
+# -platform_version; 14.0 is the deployment target in Package.swift). Only then: Swift 6.3
+# records the SDK right and hands linker flags to clang, which rejects this one.
+if xcrun vtool -show-build "$BIN/MusicDedup" | grep " sdk " | grep -v " sdk $SDK$" >/dev/null; then
+    set -- "$@" -Xlinker -platform_version -Xlinker macos -Xlinker 14.0 -Xlinker "$SDK"
+    swift build "$@"
+    BIN="$(swift build "$@" --show-bin-path)"
+fi
 
 APP="build/Music Dedup.app"
 rm -rf "$APP"

@@ -67,6 +67,15 @@ public struct LibrarySong: Codable, Hashable, Sendable, Identifiable {
     public var isRemaster: Bool { (name + " " + album).contains(remasterWords) }
 }
 
+/// Two tracks the user marked "Not a Duplicate": they never match, whatever the rules say.
+public struct TrackPair: Hashable, Sendable {
+    public let first: Int, second: Int  // database IDs, smaller first, so order doesn't matter
+
+    public init(_ a: Int, _ b: Int) {
+        (first, second) = (min(a, b), max(a, b))
+    }
+}
+
 /// How loosely two tracks may differ and still count as the same song. The defaults are the
 /// strict rules: the same track, or the same title and first artist with nearly the same length.
 public struct MatchOptions: Equatable, Sendable {
@@ -80,12 +89,20 @@ public struct MatchOptions: Equatable, Sendable {
     public var anyCreditedArtist = false
     /// Largest length difference, in seconds, between two copies of a song.
     public var tolerance: Double = 2
+    /// Pairs the user marked "Not a Duplicate".
+    public var notDuplicates: Set<TrackPair> = []
 
-    public init(ignoreVersionTags: Bool = false, foldText: Bool = false, anyCreditedArtist: Bool = false, tolerance: Double = 2) {
+    public init(ignoreVersionTags: Bool = false, foldText: Bool = false, anyCreditedArtist: Bool = false, tolerance: Double = 2,
+                notDuplicates: Set<TrackPair> = []) {
         self.ignoreVersionTags = ignoreVersionTags
         self.foldText = foldText
         self.anyCreditedArtist = anyCreditedArtist
         self.tolerance = tolerance
+        self.notDuplicates = notDuplicates
+    }
+
+    func keepsApart(_ a: Int, _ b: Int) -> Bool {
+        !notDuplicates.isEmpty && notDuplicates.contains(TrackPair(a, b))
     }
 }
 
@@ -124,7 +141,8 @@ public func findCrossPlaylist(_ playlists: [Playlist], options: MatchOptions = .
             let e = Entry(playlistID: p.id, playlistName: p.name, index: i, track: t)
             let k = Keyed(t, options)
             if let g = groups[k.bucket]?.firstIndex(where: { group in
-                group.first.matches(k, options) && !group.entries.contains { $0.playlistID == p.id }
+                group.first.matches(k, options)
+                    && !group.entries.contains { $0.playlistID == p.id || options.keepsApart($0.track.id, t.id) }
             }) {
                 groups[k.bucket]![g].entries.append(e)
             } else {
@@ -148,7 +166,9 @@ public func findLibraryDuplicates(_ songs: [LibrarySong], playlistCount: [Int: I
     // Shortest first, so copies a few seconds apart chain into one group instead of splitting.
     for (order, s) in songs.enumerated().sorted(by: { $0.element.duration < $1.element.duration }) {
         let k = Keyed(s.track, options)
-        if let g = groups[k.bucket]?.firstIndex(where: { $0.contains { $0.keyed.matches(k, options) } }) {
+        if let g = groups[k.bucket]?.firstIndex(where: { group in
+            group.contains { $0.keyed.matches(k, options) } && !group.contains { options.keepsApart($0.song.id, s.id) }
+        }) {
             groups[k.bucket]![g].append((k, s, order))
         } else {
             groups[k.bucket, default: []].append([(k, s, order)])
@@ -180,6 +200,7 @@ struct Keyed {
     func matches(_ other: Keyed, _ options: MatchOptions) -> Bool {
         abs(track.duration - other.track.duration) < options.tolerance
             && (!options.anyCreditedArtist || !artists.isDisjoint(with: other.artists))
+            && !options.keepsApart(track.id, other.track.id)
     }
 }
 

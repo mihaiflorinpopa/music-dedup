@@ -165,4 +165,17 @@ final class DedupTests: XCTestCase {
         XCTAssertEqual(groups.map { Set($0.map(\.id)) }, [[1, 2, 3]])
         XCTAssertEqual(groups[0][0].id, 1)  // the first in the library stays, whatever the lengths
     }
+
+    func testNotADuplicateKeepsOnlyThatPairApart() {
+        let p = Playlist(id: "P", name: "P", tracks: [t(1, "Song", "Artist", 200), t(2, "Song", "Artist", 200.5), t(3, "Song", "Artist", 201)])
+        XCTAssertEqual(findDuplicates(in: p).map(\.index), [1, 2])
+        let dups = findDuplicates(in: p, options: .init(notDuplicates: [TrackPair(2, 1)]))
+        XCTAssertEqual(dups.map(\.index), [2])  // 2 stays; 3 still repeats 1
+        XCTAssertEqual(dups.map(\.originalIndex), [0])
+        func s(_ id: Int) -> LibrarySong { LibrarySong(id: id, name: "Song", artist: "Artist", duration: 200, album: "A\(id)", playedCount: 0) }
+        XCTAssertTrue(findLibraryDuplicates([s(1), s(2)], options: .init(notDuplicates: [TrackPair(1, 2)])).isEmpty)
+        let other = Playlist(id: "Q", name: "Q", tracks: [t(2, "Song", "Artist", 200.5)])
+        XCTAssertTrue(findCrossPlaylist([Playlist(id: "A", name: "A", tracks: [t(1, "Song", "Artist", 200)]), other],
+                                        options: .init(notDuplicates: [TrackPair(1, 2)])).isEmpty)
+    }
 }
