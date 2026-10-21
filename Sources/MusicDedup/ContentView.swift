@@ -60,7 +60,7 @@ struct ContentView: View {
         .onChange(of: model.within) { pruneSelection() }
         .onChange(of: model.across) { pruneSelection() }
         // Every extra copy starts checked; the first copy of each song is the one that stays.
-        .onChange(of: model.library) { libraryChecked = Set(model.library.flatMap { $0.dropFirst().map(\.id) }) }
+        .onChange(of: model.library) { libraryChecked = extraCopies }
         .confirmationDialog("Remove \(pending.count) playlist \(pending.count == 1 ? "entry" : "entries")?",
                             isPresented: $confirming, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
@@ -133,6 +133,10 @@ struct ContentView: View {
                              : "\(model.library.count) songs are in your library more than once.")
                         Spacer()
                         if !model.library.isEmpty {
+                            Button("Check All") { libraryChecked = extraCopies }
+                                .disabled(libraryChecked == extraCopies)
+                            Button("Uncheck All") { libraryChecked = [] }
+                                .disabled(libraryChecked.isEmpty)
                             Button("Add \(libraryChecked.count) to “\(MusicBridge.duplicatesPlaylist)”") {
                                 Task { await model.collect(Array(libraryChecked)) }
                             }
@@ -151,7 +155,9 @@ struct ContentView: View {
                         Toggle(isOn: Binding(
                             get: { libraryChecked.contains(song.id) },
                             set: { if $0 { libraryChecked.insert(song.id) } else { libraryChecked.remove(song.id) } })) {
-                            LibraryRow(title: song.album, song: song, playlists: model.inPlaylists[song.id] ?? [])
+                            // Same album name: Music reports nothing that tells these copies apart.
+                            LibraryRow(title: song.album, song: song, playlists: model.inPlaylists[song.id] ?? [],
+                                       detailPrefix: song.album == copies[0].album ? "Same album as the copy kept" : nil)
                         }
                     }
                 } header: {
@@ -161,6 +167,11 @@ struct ContentView: View {
             }
         }
         .toggleStyle(.checkbox)
+    }
+
+    /// Every library copy except the one kept of each song.
+    private var extraCopies: Set<Int> {
+        Set(model.library.flatMap { $0.dropFirst().map(\.id) })
     }
 
     private var playlistList: some View {
@@ -223,7 +234,7 @@ struct LibraryRow: View {
         VStack(alignment: .leading) {
             Text(title)
             Text(([detailPrefix, song.artist, Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)),
-                   "\(song.playedCount) \(song.playedCount == 1 ? "play" : "plays")",
+                   song.playedCount == 0 ? nil : "\(song.playedCount) \(song.playedCount == 1 ? "play" : "plays")",
                    playlists.isEmpty ? nil : "in \(playlists.joined(separator: ", "))"] as [String?])
                 .compactMap { $0 }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
