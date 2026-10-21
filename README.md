@@ -6,7 +6,7 @@
 
 <p align="center">Find and remove duplicate songs in your playlists. For Apple Music on the Mac.</p>
 
-Music Dedup scans the playlists you made in the Music app. It shows songs that are in a playlist twice, or in several playlists, and removes the copies you choose. It's [spotify-dedup](https://github.com/JMPerez/spotify-dedup) for Apple Music.
+Music Dedup scans the playlists you made in the Music app, and your library. It shows songs that are in a playlist twice, in several playlists, or in your library more than once, and helps you clear out the copies you choose. It's [spotify-dedup](https://github.com/JMPerez/spotify-dedup) for Apple Music.
 
 It's free, open source (MIT) and runs on macOS 14 or later. With Sync Library turned on, the cleanup also reaches your iPhone, iPad and other devices.
 
@@ -21,19 +21,22 @@ You only need steps 3 and 4 once. After that, Music Dedup updates itself.
 
 ## Use it
 
-Click **Scan**. Music Dedup reads your playlists and shows three tabs:
+Click **Scan**. Music Dedup reads your playlists and your library, and shows four tabs:
 
 - **Within Playlists:** songs that are in the same playlist more than once. Removing takes out the later copies, and the first one stays. **Remove All** clears every playlist at once.
 - **Across Playlists:** songs that are in more than one playlist. Check the playlists you don't want each song in. To check all of one playlist's songs, Control-click it and choose **Select All in “…”**.
+- **Library:** songs that are in your library more than once, such as the same song on an album, a single and a compilation. The first copy of each song stays: the one in the most playlists, then the album's over a single's or EP's, then the most played. The other copies start checked. **Add to “Music Dedup: Duplicates”** puts the checked ones in that playlist. Then, in Music, open the playlist, press ⌘A, Control-click and choose **Delete from Library**. Music Dedup never deletes library songs itself. By default, Music keeps deleted songs in your playlists; see Apple's [Delete items from Music on Mac](https://support.apple.com/guide/music/mus51db94bb1/mac).
 - **Playlists:** turn off the playlists you don't want checked. You can also Control-click a playlist in the other tabs to skip it.
 
-Check the entries you want gone in either tab, then click **Remove Selected** (⌘⌫). A playlist's checkbox checks all of its duplicates.
+In the first two tabs, check the entries you want gone, then click **Remove Selected** (⌘⌫). A playlist's checkbox checks all of its duplicates.
 
 Nothing changes until you confirm. Removing takes the entry out of that playlist only. It doesn't delete the song from your library.
 
 **Settings…** (⌘,):
 
-- **Ignore Version Tags** treats "Song", "Song (Remastered 2011)", "Song - Radio Edit" and "Song (feat. Guest)" as one song. Remixes and live versions stay apart.
+- **Ignore Version Tags** treats "Song", "Song (Remastered 2011)", "Song - Radio Edit", "Song (Deluxe Edition)" and "Song (feat. Guest)" as one song. Remixes and live versions stay apart.
+- **Ignore Accents and Punctuation** treats "Red-Nosed" and "Red Nosed", "Beyoncé" and "Beyonce", and "&" and "and" as the same.
+- **Match Any Credited Artist** treats "Song (feat. Guest)" by Main and "Song" by Guest & Main as one song. Otherwise only the first artist counts.
 - **Length Difference** sets how much two copies of a song may differ in length. The default is 2 seconds.
 - **Check for Updates Automatically.**
 
@@ -44,9 +47,9 @@ The same rules as spotify-dedup:
 - the same track, added more than once, or
 - the same title and first artist (ignoring case), with lengths less than 2 seconds apart. This catches the single and the album copy of a song.
 
-Only playlists you made are checked. Smart playlists, Genius playlists and folders are left out.
+Only playlists you made are checked, and your library. Smart playlists, Genius playlists and folders are left out. The options above loosen these rules; all are off by default.
 
-**Does it free disk space?** No. A playlist entry only points to a song, so removing one deletes no file, and two entries of the same song are one song. Apple Music songs you haven't downloaded take no space anyway. To save space, remove duplicate songs from your library in Music (**File > Library > Show Duplicate Items**) or remove downloads you don't need.
+**Does it free disk space?** No. A playlist entry only points to a song, so removing one deletes no file, and two entries of the same song are one song. Apple Music songs you haven't downloaded take no space anyway. To save space, delete duplicate songs from your library with the **Library** tab, or remove downloads you don't need.
 
 ## If something goes wrong
 
@@ -59,9 +62,9 @@ Only playlists you made are checked. Smart playlists, Genius playlists and folde
 
 Apple's [Apple Music API](https://developer.apple.com/documentation/applemusicapi) can read playlists and add songs to them, but it can't remove songs ([Apple's answer on the developer forums](https://developer.apple.com/forums/thread/683035)). MusicKit can only edit playlists that its own app created. The Music app's scripting dictionary can remove them, so Music Dedup uses that. That's also why it's a Mac app.
 
-Two small JavaScript for Automation scripts do the work: [`scan.js`](Resources/scan.js) reads your playlists, and [`remove.js`](Resources/remove.js) removes the entries you confirmed. Before removing anything, it checks that every entry is still where the scan found it.
+Small JavaScript for Automation scripts do the work: [`scan.js`](Resources/scan.js) reads your playlists, [`library.js`](Resources/library.js) reads your library, [`remove.js`](Resources/remove.js) removes the playlist entries you confirmed, and [`collect.js`](Resources/collect.js) adds library copies to the duplicates playlist. Before removing anything, `remove.js` checks that every entry is still where the scan found it.
 
-Music Dedup does nothing in the background, and nothing leaves your Mac. It talks to Music only when you scan or remove, and checks for updates when it opens and once a day.
+Music Dedup does nothing in the background, and nothing leaves your Mac. It talks to Music only when you scan, remove or add to the duplicates playlist, and checks for updates when it opens and once a day.
 
 ## For developers
 

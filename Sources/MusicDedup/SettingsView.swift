@@ -36,7 +36,17 @@ struct MatchingSettings: View {
                 Toggle(isOn: $model.ignoreVersionTags) {
                     OptionLabel(
                         title: "Ignore Version Tags",
-                        detail: "Treats “Song”, “Song (Remastered 2011)”, “Song - Radio Edit” and “Song (feat. Guest)” as one song. Remixes and live versions stay apart.")
+                        detail: "Treats “Song”, “Song (Remastered 2011)”, “Song - Radio Edit”, “Song (Deluxe Edition)” and “Song (feat. Guest)” as one song. Remixes and live versions stay apart.")
+                }
+                Toggle(isOn: $model.foldText) {
+                    OptionLabel(
+                        title: "Ignore Accents and Punctuation",
+                        detail: "Treats “Red-Nosed” and “Red Nosed”, “Beyoncé” and “Beyonce”, and “&” and “and” as the same.")
+                }
+                Toggle(isOn: $model.anyCreditedArtist) {
+                    OptionLabel(
+                        title: "Match Any Credited Artist",
+                        detail: "Treats “Song (feat. Guest)” by Main and “Song” by Guest & Main as one song. Otherwise only the first artist counts.")
                 }
                 Picker(selection: $model.tolerance) {
                     ForEach([1.0, 2, 5, 10], id: \.self) { Text("\(Int($0)) seconds").tag($0) }

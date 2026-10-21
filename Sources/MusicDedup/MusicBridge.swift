@@ -17,6 +17,19 @@ enum MusicBridge {
         _ = try run("remove", [playlistID] + entries.map { "\($0.index):\($0.track.id)" })
     }
 
+    /// The playlist that collects library duplicates for the user to delete in Music.
+    static let duplicatesPlaylist = "Music Dedup: Duplicates"
+
+    static func scanLibrary() throws -> [LibrarySong] {
+        try JSONDecoder().decode([LibrarySong].self, from: run("library"))
+    }
+
+    /// Adds the given library songs to `duplicatesPlaylist` and returns how many were new there.
+    static func collect(_ ids: [Int]) throws -> Int {
+        let out = try run("collect", [duplicatesPlaylist] + ids.map(String.init))
+        return Int(String(decoding: out, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+    }
+
     private static func run(_ script: String, _ args: [String] = []) throws -> Data {
         guard let path = Bundle.main.path(forResource: script, ofType: "js") else {
             throw Failure(errorDescription: "\(script).js is missing from the app bundle.")
