@@ -1,5 +1,5 @@
 // Usage: remove.js <playlist persistent ID> <index>:<database ID> ...
-// Removes those entries from the playlist only; the songs stay in the library.
+// Removes those entries from the playlist only. It deletes no songs from the library.
 function run(argv) {
   const music = Application('Music')
   const pl = music.userPlaylists.whose({ persistentID: argv[0] })[0]

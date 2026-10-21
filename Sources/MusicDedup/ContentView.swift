@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     let model: Model
+    @State private var selected: Set<Entry> = []
     @State private var pending: [Entry] = []
     @State private var confirming = false
 
@@ -32,15 +33,36 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if let error = model.error {
-                Text(error).foregroundStyle(.red).textSelection(.enabled).padding(8)
+            VStack(spacing: 0) {
+                if let error = model.error {
+                    Text(error).foregroundStyle(.red).textSelection(.enabled).padding(8)
+                }
+                if !selected.isEmpty {
+                    HStack {
+                        Text("\(selected.count) selected")
+                        Spacer()
+                        Button("Deselect All") { selected = [] }
+                        Button("Remove Selected") { confirm(Array(selected)) }
+                            .keyboardShortcut(.delete, modifiers: .command)
+                    }
+                    .padding(8)
+                    .background(.bar)
+                }
             }
         }
+        // Positions shift after a removal, and settings change what's listed:
+        // keep only selected entries that are still on screen.
+        .onChange(of: model.within) { pruneSelection() }
+        .onChange(of: model.across) { pruneSelection() }
         .confirmationDialog("Remove \(pending.count) playlist \(pending.count == 1 ? "entry" : "entries")?",
                             isPresented: $confirming, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) { Task { await model.remove(pending) } }
+            Button("Remove", role: .destructive) {
+                selected.subtract(pending)
+                Task { await model.remove(pending) }
+            }
         } message: {
-            Text("Songs stay in your library. With Sync Library on, the change reaches your other devices.")
+            // Not "songs stay in your library": many playlist songs were never added to it.
+            Text("This only takes entries out of playlists. It doesn't delete songs from your library. With Sync Library on, the change reaches your other devices.")
         }
     }
 
@@ -56,10 +78,13 @@ struct ContentView: View {
             }
             ForEach(model.within, id: \.self) { dups in
                 Section {
-                    ForEach(dups, id: \.self) { TrackRow(track: $0.track, detail: $0.reason) }
+                    ForEach(dups, id: \.self) { d in
+                        Toggle(isOn: isSelected(d)) { TrackRow(track: d.track, detail: d.reason) }
+                    }
                 } header: {
                     HStack {
-                        Text(dups[0].playlistName)
+                        // Checks every row below it, and shows a dash when only some are checked.
+                        Toggle(sources: dups.map(isSelected), isOn: \.self) { Text(dups[0].playlistName) }
                         Spacer()
                         Button("Remove \(dups.count)") { confirm(dups) }
                     }
@@ -67,6 +92,7 @@ struct ContentView: View {
                 }
             }
         }
+        .toggleStyle(.checkbox)
     }
 
     private var acrossList: some View {
@@ -75,18 +101,20 @@ struct ContentView: View {
             ForEach(model.across, id: \.self) { group in
                 Section {
                     ForEach(group, id: \.self) { e in
-                        HStack {
-                            Text(e.playlistName)
-                            Spacer()
-                            Button("Remove from This Playlist") { confirm([e]) }
-                        }
-                        .contextMenu { skipButton(e) }
+                        Toggle(e.playlistName, isOn: isSelected(e))
+                            .contextMenu {
+                                Button("Select All in “\(e.playlistName)”") {
+                                    selected.formUnion(model.across.joined().filter { $0.playlistID == e.playlistID })
+                                }
+                                skipButton(e)
+                            }
                     }
                 } header: {
                     TrackRow(track: group[0].track, detail: "in \(Set(group.map(\.playlistID)).count) playlists")
                 }
             }
         }
+        .toggleStyle(.checkbox)
     }
 
     private var playlistList: some View {
@@ -105,6 +133,14 @@ struct ContentView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func isSelected(_ e: Entry) -> Binding<Bool> {
+        Binding(get: { selected.contains(e) }, set: { if $0 { selected.insert(e) } else { selected.remove(e) } })
+    }
+
+    private func pruneSelection() {
+        selected.formIntersection(Set(model.within.joined()).union(model.across.joined()))
     }
 
     private func skipButton(_ e: Entry) -> some View {

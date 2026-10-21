@@ -23,11 +23,13 @@ You only need steps 3 and 4 once. After that, Music Dedup updates itself.
 
 Click **Scan**. Music Dedup reads your playlists and shows three tabs:
 
-- **Within Playlists:** songs that are in the same playlist more than once. Removing takes out the later copies, and the first one stays.
-- **Across Playlists:** songs that are in more than one playlist. Click **Remove from This Playlist** where you don't want it.
+- **Within Playlists:** songs that are in the same playlist more than once. Removing takes out the later copies, and the first one stays. **Remove All** clears every playlist at once.
+- **Across Playlists:** songs that are in more than one playlist. Check the playlists you don't want each song in. To check all of one playlist's songs, Control-click it and choose **Select All in “…”**.
 - **Playlists:** turn off the playlists you don't want checked. You can also Control-click a playlist in the other tabs to skip it.
 
-Nothing changes until you confirm. Removing takes the song out of that playlist only; it stays in your library.
+Check the entries you want gone in either tab, then click **Remove Selected** (⌘⌫). A playlist's checkbox checks all of its duplicates.
+
+Nothing changes until you confirm. Removing takes the entry out of that playlist only. It doesn't delete the song from your library.
 
 **Settings…** (⌘,):
 
@@ -43,6 +45,8 @@ The same rules as spotify-dedup:
 - the same title and first artist (ignoring case), with lengths less than 2 seconds apart. This catches the single and the album copy of a song.
 
 Only playlists you made are checked. Smart playlists, Genius playlists and folders are left out.
+
+**Does it free disk space?** No. A playlist entry only points to a song, so removing one deletes no file, and two entries of the same song are one song. Apple Music songs you haven't downloaded take no space anyway. To save space, remove duplicate songs from your library in Music (**File > Library > Show Duplicate Items**) or remove downloads you don't need.
 
 ## If something goes wrong
 
