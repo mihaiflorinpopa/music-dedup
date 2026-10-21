@@ -3,8 +3,20 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-swift build -c release --arch arm64 --arch x86_64
-BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+SDK="$(xcrun --show-sdk-version)"
+set -- -c release --arch arm64 --arch x86_64
+swift build "$@"
+BIN="$(swift build "$@" --show-bin-path)"
+# macOS gives an app the look and behavior of the SDK its binary records. Swift Build, the
+# default build system from Swift 6.4 (Xcode 27), records the deployment target instead, and
+# the app then draws its tabs like macOS 14. If so, relink with the real SDK (man ld:
+# -platform_version; 14.0 is the deployment target in Package.swift). Only then: Swift 6.3
+# records the SDK right and hands linker flags to clang, which rejects this one.
+if xcrun vtool -show-build "$BIN/MusicDedup" | grep " sdk " | grep -v " sdk $SDK$" >/dev/null; then
+    set -- "$@" -Xlinker -platform_version -Xlinker macos -Xlinker 14.0 -Xlinker "$SDK"
+    swift build "$@"
+    BIN="$(swift build "$@" --show-bin-path)"
+fi
 
 APP="build/Music Dedup.app"
 rm -rf "$APP"
@@ -47,6 +59,10 @@ cp "$ACTOOL_OUT/Assets.car" "$APP/Contents/Resources/"
 rm -rf "$ACTOOL_OUT"
 
 cp "$BIN/MusicDedup" "$APP/Contents/MacOS/MusicDedup"
+if xcrun vtool -show-build "$APP/Contents/MacOS/MusicDedup" | grep " sdk " | grep -v " sdk $SDK$" >/dev/null; then
+    echo "MusicDedup records an SDK other than $SDK, so macOS would draw it like an older system." >&2
+    exit 1
+fi
 
 # Sparkle (auto-updates) is a binary framework the app loads from Frameworks/.
 mkdir -p "$APP/Contents/Frameworks"

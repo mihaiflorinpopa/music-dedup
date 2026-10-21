@@ -2,6 +2,7 @@
 // Each property is fetched for all songs at once: one Apple event per property, not per song.
 function run() {
   const T = Application('Music').libraryPlaylists[0].tracks
+  if (T.length === 0) return '[]' // a bulk get fails with "Can't get object" when there's nothing to get
   const kind = T.mediaKind(), id = T.databaseID(), name = T.name(), artist = T.artist()
   const duration = T.duration(), album = T.album(), plays = T.playedCount()
   const out = []

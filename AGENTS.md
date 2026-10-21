@@ -9,11 +9,11 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - `osascript -l JavaScript Resources/scan.js` and `Resources/library.js` print, as JSON, what the app reads from Music. They change nothing.
 - Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist. Test `collect.js` with a throwaway playlist name, never "Music Dedup: Duplicates", and delete that playlist afterwards.
 - zsh doesn't split unquoted variables into words, so `$IDS` reaches a script as one argument. Pass database IDs as separate arguments (or `${=IDS}`).
-- Universal builds made with Xcode 27 (Swift 6.4) record `sdk 14.0`, the deployment target, and warn that x86_64 is deprecated. CI (Xcode 26) records the real SDK and checks it.
+- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` passes the real SDK to the linker with `-platform_version` and fails if the binary records anything else; CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
 
 ## Layout
 
-- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
+- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance, and the `TrackPair`s marked Not a Duplicate) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
 - `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `Updater` (Sparkle).
 - `Resources/`: Info.plist, `Credits.rtf` (the About panel's credits, with Sparkle's credit and Apple's trademark notice), `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
 
@@ -24,6 +24,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track. A bulk get fails with "Can't get object" on an empty playlist, so check `tracks.length` first.
 - The matching defaults stay spotify-dedup's: the same database ID, or the same lowercased name and first artist with lengths less than 2 seconds apart. New rules are options, off by default.
 - No background work: Music is read only on Scan and after a removal, and written only on a confirmed removal or an add to the duplicates playlist.
+- Matching runs on one thread at a time (the main actor): `Dedup.swift` compiles its regexes once into `nonisolated(unsafe)` globals, since building a `Regex` per call made a settings change take seconds. Move matching off the main actor only behind a single serial executor.
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
 - Sign from the inside out. Never use `codesign --deep`.

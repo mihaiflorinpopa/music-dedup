@@ -26,8 +26,11 @@ enum MusicBridge {
 
     /// Adds the given library songs to `duplicatesPlaylist` and returns how many were new there.
     static func collect(_ ids: [Int]) throws -> Int {
-        let out = try run("collect", [duplicatesPlaylist] + ids.map(String.init))
-        return Int(String(decoding: out, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let out = String(decoding: try run("collect", [duplicatesPlaylist] + ids.map(String.init)), as: UTF8.self)
+        guard let added = Int(out.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw Failure(errorDescription: "collect.js printed \"\(out)\" instead of a count.")
+        }
+        return added
     }
 
     private static func run(_ script: String, _ args: [String] = []) throws -> Data {
@@ -41,9 +44,13 @@ enum MusicBridge {
         p.standardError = err
         try p.run()
         let data = out.fileHandleForReading.readDataToEndOfFile()
+        // shortcut: stderr is read after exit, so more than a pipe's 64 KB of it would block;
+        // osascript writes one error line there. Read it concurrently if that ever changes.
         p.waitUntilExit()
         guard p.terminationStatus == 0 else {
-            throw Failure(errorDescription: String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+            let message = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            throw Failure(errorDescription: message.isEmpty ? "osascript exited with status \(p.terminationStatus)." : message)
         }
         return data
     }

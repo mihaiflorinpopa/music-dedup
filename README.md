@@ -28,6 +28,8 @@ Click **Scan**. Music Dedup reads your playlists and your library, and shows fou
 - **Library:** songs that are in your library more than once, such as the same song on an album, a single and a compilation. The first copy of each song stays: the one in the most playlists, then a remaster or anniversary edition over the original, then the album's over a single's or EP's, then the most played. Quality and release date can't decide: Music reports the same quality for every Apple Music copy, and reissues keep the original release date. The other copies start checked; **Check All** and **Uncheck All** change them all at once. **Add to “Music Dedup: Duplicates”** puts the checked ones in that playlist. Then, in Music, open the playlist, press ⌘A, Control-click and choose **Delete from Library**. Music Dedup never deletes library songs itself. By default, Music keeps deleted songs in your playlists; see Apple's [Delete items from Music on Mac](https://support.apple.com/guide/music/mus51db94bb1/mac).
 - **Playlists:** turn off the playlists you don't want checked. You can also Control-click a playlist in the other tabs to skip it.
 
+If two copies are matched but you want both, Control-click the duplicate and choose **Not a Duplicate**: that pair is never matched again, in any tab. **Settings > Matching** shows how many pairs you've kept apart and can forget them.
+
 In the first two tabs, check the entries you want gone, then click **Remove Selected** (⌘⌫). A playlist's checkbox checks all of its duplicates.
 
 Nothing changes until you confirm. Removing takes the entry out of that playlist only. It doesn't delete the song from your library.

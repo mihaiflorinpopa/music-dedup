@@ -14,7 +14,7 @@ final class DedupTests: XCTestCase {
         t(4, "Other", "Artist", 200),
     ])
 
-    func testSpotifyDedupRules() {
+    func testDefaultRules() {
         let dups = findDuplicates(in: a)
         XCTAssertEqual(dups.map(\.index), [1, 2])
         XCTAssertEqual(dups.map(\.reason), ["same track", "same name and artist"])
@@ -117,5 +117,65 @@ final class DedupTests: XCTestCase {
         let titled = [s(1, "Song", "Album", plays: 9), s(2, "Song (2011 Remaster)", "Album")]
         XCTAssertEqual(findLibraryDuplicates(titled, options: .init(ignoreVersionTags: true)).map { $0.map(\.id) }, [[2, 1]])
         XCTAssertFalse(s(1, "Song", "Remastering the Classics Live").isRemaster)
+    }
+
+    func testEachDuplicateRecordsTheEntryItRepeats() {
+        let dups = findDuplicates(in: a)
+        XCTAssertEqual(dups.map(\.originalIndex), [0, 0])
+        XCTAssertEqual(dups.map(\.original?.name), ["Song", "Song"])
+    }
+
+    func testVersionTagsKeepOtherRecordingsAndMovements() {
+        XCTAssertEqual(stripVersionTags("Song - Live at Wembley (Remastered 2011)"), "Song - Live at Wembley")
+        XCTAssertEqual(stripVersionTags("Symphony No. 5 - I. Allegro (Remastered)"), "Symphony No. 5 - I. Allegro")
+        XCTAssertEqual(stripVersionTags("Song (Clean Bandit Remix)"), "Song (Clean Bandit Remix)")
+        XCTAssertEqual(stripVersionTags("Song (Live / Remastered)"), "Song (Live / Remastered)")
+        XCTAssertEqual(stripVersionTags("Song (Mono Remix)"), "Song (Mono Remix)")
+        XCTAssertEqual(stripVersionTags("Song - Part 2 - 2011 Remaster"), "Song - Part 2")
+    }
+
+    func testFoldTextReadsAndAsAmpersandBetweenArtists() {
+        let p = Playlist(id: "P", name: "P", tracks: [t(1, "Mrs. Robinson", "Simon & Garfunkel", 240), t(2, "Mrs Robinson", "Simon and Garfunkel", 240)])
+        XCTAssertTrue(findDuplicates(in: p).isEmpty)
+        XCTAssertEqual(findDuplicates(in: p, options: .init(foldText: true)).map(\.index), [1])
+    }
+
+    func testCrossPlaylistTakesAtMostOneEntryPerPlaylist() {
+        let p = Playlist(id: "A", name: "A", tracks: [t(1, "Song", "Artist", 181)])
+        let q = Playlist(id: "B", name: "B", tracks: [t(2, "Song", "Artist", 180), t(3, "Song", "Artist", 182.5)])
+        for order in [[p, q], [q, p]] {
+            let cross = findCrossPlaylist(order)
+            XCTAssertEqual(cross.count, 1)
+            XCTAssertEqual(Set(cross[0].map(\.playlistID)), ["A", "B"])
+            XCTAssertEqual(cross[0].count, 2)
+        }
+    }
+
+    func testCrossPlaylistUsesGivenDuplicates() {
+        let b = Playlist(id: "B", name: "B", tracks: [t(5, "song", "Artist", 199)])
+        let dups = findDuplicates(in: a) + findDuplicates(in: b)
+        XCTAssertEqual(findCrossPlaylist([a, b], duplicates: dups), findCrossPlaylist([a, b]))
+    }
+
+    func testLibraryChainsCopiesAFewSecondsApart() {
+        func s(_ id: Int, _ duration: Double) -> LibrarySong {
+            LibrarySong(id: id, name: "Song", artist: "Artist", duration: duration, album: "Album \(id)", playedCount: 0)
+        }
+        let groups = findLibraryDuplicates([s(1, 183), s(2, 180), s(3, 181.5)])
+        XCTAssertEqual(groups.map { Set($0.map(\.id)) }, [[1, 2, 3]])
+        XCTAssertEqual(groups[0][0].id, 1)  // the first in the library stays, whatever the lengths
+    }
+
+    func testNotADuplicateKeepsOnlyThatPairApart() {
+        let p = Playlist(id: "P", name: "P", tracks: [t(1, "Song", "Artist", 200), t(2, "Song", "Artist", 200.5), t(3, "Song", "Artist", 201)])
+        XCTAssertEqual(findDuplicates(in: p).map(\.index), [1, 2])
+        let dups = findDuplicates(in: p, options: .init(notDuplicates: [TrackPair(2, 1)]))
+        XCTAssertEqual(dups.map(\.index), [2])  // 2 stays; 3 still repeats 1
+        XCTAssertEqual(dups.map(\.originalIndex), [0])
+        func s(_ id: Int) -> LibrarySong { LibrarySong(id: id, name: "Song", artist: "Artist", duration: 200, album: "A\(id)", playedCount: 0) }
+        XCTAssertTrue(findLibraryDuplicates([s(1), s(2)], options: .init(notDuplicates: [TrackPair(1, 2)])).isEmpty)
+        let other = Playlist(id: "Q", name: "Q", tracks: [t(2, "Song", "Artist", 200.5)])
+        XCTAssertTrue(findCrossPlaylist([Playlist(id: "A", name: "A", tracks: [t(1, "Song", "Artist", 200)]), other],
+                                        options: .init(notDuplicates: [TrackPair(1, 2)])).isEmpty)
     }
 }

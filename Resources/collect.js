@@ -7,10 +7,12 @@ function run([name, ...ids]) {
   const playlist = found.length ? found[0] : music.UserPlaylist({ name }).make()
   // A bulk get fails with "Can't get object" on an empty playlist, so check its length first.
   const have = new Set(playlist.tracks.length ? playlist.tracks.databaseID() : [])
+  // One Apple event for every ID in the library, then each song by position, checked against its ID.
+  const position = new Map(library.tracks.databaseID().map((id, i) => [id, i]))
   const songs = ids.map(Number).filter(id => !have.has(id)).map(id => {
-    const matches = library.tracks.whose({ databaseID: id })
-    if (matches.length !== 1) throw new Error('A song changed in Music since the scan. Scan again.')
-    return matches[0]
+    const song = position.has(id) ? library.tracks[position.get(id)] : null
+    if (!song || song.databaseID() !== id) throw new Error('A song changed in Music since the scan. Scan again.')
+    return song
   })
   // Every song is found before any is added, so a changed library adds nothing.
   songs.forEach(song => music.duplicate(song, { to: playlist }))

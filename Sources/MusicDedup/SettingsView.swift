@@ -53,7 +53,15 @@ struct MatchingSettings: View {
                 } label: {
                     OptionLabel(
                         title: "Length Difference",
-                        detail: "How much two copies of a song may differ in length. spotify-dedup uses 2 seconds.")
+                        detail: "How much two copies of a song may differ in length. The default is 2 seconds.")
+                }
+                LabeledContent {
+                    Button("Forget") { model.notDuplicates = [] }
+                        .disabled(model.notDuplicates.isEmpty)
+                } label: {
+                    OptionLabel(
+                        title: "Not a Duplicate",
+                        detail: "\(counted(model.notDuplicates.count, "pair")) you kept apart with Control-click > Not a Duplicate. Forget them to see those matches again.")
                 }
             }
         }
