@@ -24,6 +24,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track. A bulk get fails with "Can't get object" on an empty playlist, so check `tracks.length` first.
 - The matching defaults stay spotify-dedup's: the same database ID, or the same lowercased name and first artist with lengths less than 2 seconds apart. New rules are options, off by default.
 - No background work: Music is read only on Scan and after a removal, and written only on a confirmed removal or an add to the duplicates playlist.
+- Matching runs on one thread at a time (the main actor): `Dedup.swift` compiles its regexes once into `nonisolated(unsafe)` globals, since building a `Regex` per call made a settings change take seconds. Move matching off the main actor only behind a single serial executor.
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
 - Sign from the inside out. Never use `codesign --deep`.

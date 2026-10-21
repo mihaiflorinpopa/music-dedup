@@ -71,16 +71,19 @@ final class Model {
         }
         set {
             withMutation(keyPath: \.skipped) { defaults.set(newValue.sorted(), forKey: "skippedPlaylists") }
-            analyze()
+            analyzePlaylists()
         }
     }
 
+    // Each action returns at once while another runs: the next one would read Music mid-change.
     func scan() async {
+        guard !busy else { return }
         error = nil
         await load()
     }
 
     func remove(_ entries: [Entry]) async {
+        guard !busy else { return }
         error = nil
         busy = true
         do {
@@ -97,6 +100,7 @@ final class Model {
 
     /// Adds library songs to the duplicates playlist, for the user to delete from the library in Music.
     func collect(_ ids: [Int]) async {
+        guard !busy else { return }
         error = nil
         notice = nil
         busy = true
@@ -111,6 +115,7 @@ final class Model {
 
     private func load() async {
         busy = true
+        notice = nil
         defer { busy = false }
         do {
             let (found, songs) = try await Task.detached { (try MusicBridge.scan(), try MusicBridge.scanLibrary()) }.value
@@ -127,12 +132,19 @@ final class Model {
         }
     }
 
+    private var options: MatchOptions {
+        MatchOptions(ignoreVersionTags: ignoreVersionTags, foldText: foldText, anyCreditedArtist: anyCreditedArtist, tolerance: tolerance)
+    }
+
     private func analyze() {
-        let options = MatchOptions(ignoreVersionTags: ignoreVersionTags, foldText: foldText,
-                                   anyCreditedArtist: anyCreditedArtist, tolerance: tolerance)
+        analyzePlaylists()
+        library = findLibraryDuplicates(librarySongs, playlistCount: inPlaylists.mapValues(\.count), options: options)
+    }
+
+    private func analyzePlaylists() {
+        let options = options, skipped = skipped  // read once, not once per playlist
         let included = playlists.filter { !skipped.contains($0.id) }
         within = included.map { findDuplicates(in: $0, options: options) }.filter { !$0.isEmpty }
-        across = findCrossPlaylist(included, options: options)
-        library = findLibraryDuplicates(librarySongs, playlistCount: inPlaylists.mapValues(\.count), options: options)
+        across = findCrossPlaylist(included, options: options, duplicates: Array(within.joined()))
     }
 }

@@ -16,7 +16,6 @@ struct ContentView: View {
             // Here rather than in Settings: the HIG keeps filters in the view they affect.
             playlistList.tabItem { Label("Playlists", systemImage: "checklist") }
         }
-        .disabled(model.busy)
         .toolbar {
             Button("Scan", systemImage: "arrow.clockwise") { Task { await model.scan() } }
                 .disabled(model.busy)
@@ -55,13 +54,14 @@ struct ContentView: View {
                 }
             }
         }
+        .disabled(model.busy)
         // Positions shift after a removal, and settings change what's listed:
         // keep only selected entries that are still on screen.
         .onChange(of: model.within) { pruneSelection() }
         .onChange(of: model.across) { pruneSelection() }
         // Every extra copy starts checked; the first copy of each song is the one that stays.
         .onChange(of: model.library) { libraryChecked = extraCopies }
-        .confirmationDialog("Remove \(pending.count) playlist \(pending.count == 1 ? "entry" : "entries")?",
+        .confirmationDialog("Remove \(counted(pending.count, "playlist entry", "playlist entries"))?",
                             isPresented: $confirming, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
                 selected.subtract(pending)
@@ -78,15 +78,16 @@ struct ContentView: View {
             if model.scanned {
                 let total = model.within.joined().count
                 HStack {
-                    Text(total == 0 ? "No duplicates inside any playlist." : "\(total) duplicates in \(model.within.count) playlists")
+                    Text(total == 0 ? "No duplicates inside any playlist."
+                         : "\(counted(total, "duplicate")) in \(counted(model.within.count, "playlist"))")
                     Spacer()
                     if total > 0 { Button("Remove All") { confirm(Array(model.within.joined())) } }
                 }
             }
-            ForEach(model.within, id: \.self) { dups in
+            ForEach(model.within, id: \.[0]) { dups in
                 Section {
-                    ForEach(dups, id: \.self) { d in
-                        Toggle(isOn: isSelected(d)) { TrackRow(track: d.track, detail: d.reason) }
+                    ForEach(dups, id: \.index) { d in
+                        Toggle(isOn: isSelected(d)) { TrackRow(track: d.track, position: d.index, detail: repeats(d)) }
                     }
                 } header: {
                     HStack {
@@ -105,10 +106,16 @@ struct ContentView: View {
     private var acrossList: some View {
         List {
             if model.scanned && model.across.isEmpty { Text("No song is in more than one playlist.") }
-            ForEach(model.across, id: \.self) { group in
+            ForEach(model.across, id: \.[0]) { group in
                 Section {
-                    ForEach(group, id: \.self) { e in
-                        Toggle(e.playlistName, isOn: isSelected(e))
+                    ForEach(group, id: \.playlistID) { e in
+                        Toggle(isOn: isSelected(e)) {
+                            VStack(alignment: .leading) {
+                                Text(e.playlistName)
+                                Text((["#\(e.index + 1)", e.track.album.isEmpty ? nil : e.track.album] as [String?]).compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                             .contextMenu {
                                 Button("Select All in “\(e.playlistName)”") {
                                     selected.formUnion(model.across.joined().filter { $0.playlistID == e.playlistID })
@@ -117,7 +124,7 @@ struct ContentView: View {
                             }
                     }
                 } header: {
-                    TrackRow(track: group[0].track, detail: "in \(Set(group.map(\.playlistID)).count) playlists")
+                    TrackRow(track: group[0].track, showAlbum: false, detail: "In \(counted(group.count, "playlist"))")
                 }
             }
         }
@@ -130,7 +137,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(model.library.isEmpty ? "No song is in your library twice."
-                             : "\(model.library.count) songs are in your library more than once.")
+                             : "\(counted(model.library.count, "song")) \(model.library.count == 1 ? "is" : "are") in your library more than once.")
                         Spacer()
                         if !model.library.isEmpty {
                             Button("Check All") { libraryChecked = extraCopies }
@@ -149,7 +156,7 @@ struct ContentView: View {
                     }
                 }
             }
-            ForEach(model.library, id: \.self) { copies in
+            ForEach(model.library, id: \.[0].id) { copies in
                 Section {
                     ForEach(copies.dropFirst()) { song in
                         Toggle(isOn: Binding(
@@ -204,21 +211,44 @@ struct ContentView: View {
         Button("Skip “\(e.playlistName)”") { model.skipped.insert(e.playlistID) }
     }
 
+    /// What a duplicate inside a playlist repeats, so it's clear which two entries matched.
+    private func repeats(_ d: Entry) -> String? {
+        guard let i = d.originalIndex, let original = d.original else { return nil }
+        if original.id == d.track.id { return "Same track as #\(i + 1)" }
+        return "Same song as #\(i + 1): \(original.name)" + (original.album.isEmpty ? "" : ", \(original.album)")
+    }
+
     private func confirm(_ entries: [Entry]) {
         pending = entries
         confirming = true
     }
 }
 
+/// "1 song", "2 songs".
+func counted(_ n: Int, _ singular: String, _ plural: String? = nil) -> String {
+    "\(n) \(n == 1 ? singular : plural ?? singular + "s")"
+}
+
+func minutesAndSeconds(_ seconds: Double) -> String {
+    Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond))
+}
+
+/// A track: its position and title, then artist, album and length, then a detail line.
 struct TrackRow: View {
     let track: Track
-    let detail: String
+    var position: Int?  // in its playlist, from 0
+    var showAlbum = true
+    var detail: String?
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(track.name)
-            Text("\(track.artist) · \(Duration.seconds(track.duration).formatted(.time(pattern: .minuteSecond))) · \(detail)")
+            Text(position.map { "#\($0 + 1)  \(track.name)" } ?? track.name)
+            Text(([track.artist, showAlbum && !track.album.isEmpty ? track.album : nil, minutesAndSeconds(track.duration)] as [String?])
+                .compactMap { $0 }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
+            if let detail {
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -233,8 +263,8 @@ struct LibraryRow: View {
     var body: some View {
         VStack(alignment: .leading) {
             Text(title)
-            Text(([detailPrefix, song.artist, Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)),
-                   song.playedCount == 0 ? nil : "\(song.playedCount) \(song.playedCount == 1 ? "play" : "plays")",
+            Text(([detailPrefix, song.artist, minutesAndSeconds(song.duration),
+                   song.playedCount == 0 ? nil : counted(song.playedCount, "play"),
                    playlists.isEmpty ? nil : "in \(playlists.joined(separator: ", "))"] as [String?])
                 .compactMap { $0 }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
