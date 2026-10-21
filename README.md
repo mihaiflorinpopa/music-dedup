@@ -29,7 +29,7 @@ Click **Scan**. Music Dedup reads your playlists and shows three tabs:
 
 Check the entries you want gone in either tab, then click **Remove Selected** (⌘⌫). A playlist's checkbox checks all of its duplicates.
 
-Nothing changes until you confirm. Removing takes the song out of that playlist only; it stays in your library.
+Nothing changes until you confirm. Removing takes the entry out of that playlist only. It doesn't delete the song from your library.
 
 **Settings…** (⌘,):
 
@@ -45,6 +45,8 @@ The same rules as spotify-dedup:
 - the same title and first artist (ignoring case), with lengths less than 2 seconds apart. This catches the single and the album copy of a song.
 
 Only playlists you made are checked. Smart playlists, Genius playlists and folders are left out.
+
+**Does it free disk space?** No. A playlist entry only points to a song, so removing one deletes no file, and two entries of the same song are one song. Apple Music songs you haven't downloaded take no space anyway. To save space, remove duplicate songs from your library in Music (**File > Library > Show Duplicate Items**) or remove downloads you don't need.
 
 ## If something goes wrong
 

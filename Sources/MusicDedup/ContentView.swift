@@ -61,7 +61,8 @@ struct ContentView: View {
                 Task { await model.remove(pending) }
             }
         } message: {
-            Text("Songs stay in your library. With Sync Library on, the change reaches your other devices.")
+            // Not "songs stay in your library": many playlist songs were never added to it.
+            Text("This only takes entries out of playlists. It doesn't delete songs from your library. With Sync Library on, the change reaches your other devices.")
         }
     }
 
