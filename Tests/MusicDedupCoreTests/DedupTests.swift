@@ -101,4 +101,21 @@ final class DedupTests: XCTestCase {
         XCTAssertEqual(findLibraryDuplicates(songs).map { $0.map(\.id) }, [[4, 2, 3, 1]])
         XCTAssertTrue(findLibraryDuplicates([s(1, "A", plays: 0), LibrarySong(id: 2, name: "Other", artist: "Artist", duration: 200, album: "A", playedCount: 0)]).isEmpty)
     }
+
+    func testLibraryPrefersRemastersRightAfterPlaylists() {
+        func s(_ id: Int, _ name: String, _ album: String, plays: Int = 0) -> LibrarySong {
+            LibrarySong(id: id, name: name, artist: "Artist", duration: 200, album: album, playedCount: plays)
+        }
+        let songs = [
+            s(1, "Song", "Album", plays: 9),
+            s(2, "Song", "Album (20th Anniversary Edition)"),
+            s(3, "Song", "Album (Remastered) - Single"),
+        ]
+        XCTAssertEqual(findLibraryDuplicates(songs).map { $0.map(\.id) }, [[2, 3, 1]])
+        XCTAssertEqual(findLibraryDuplicates(songs, playlistCount: [1: 1]).map { $0.map(\.id) }, [[1, 2, 3]])
+        // A remaster named in the title counts too, once Ignore Version Tags groups it with the original.
+        let titled = [s(1, "Song", "Album", plays: 9), s(2, "Song (2011 Remaster)", "Album")]
+        XCTAssertEqual(findLibraryDuplicates(titled, options: .init(ignoreVersionTags: true)).map { $0.map(\.id) }, [[2, 1]])
+        XCTAssertFalse(s(1, "Song", "Remastering the Classics Live").isRemaster)
+    }
 }

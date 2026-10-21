@@ -57,6 +57,9 @@ public struct LibrarySong: Codable, Hashable, Sendable, Identifiable {
 
     /// Apple Music adds " - Single" and " - EP" to the titles of those releases (Apple Music Style Guide).
     public var isSingleOrEP: Bool { album.hasSuffix(" - Single") || album.hasSuffix(" - EP") }
+
+    /// The title or album says it's a remaster or an anniversary reissue, which usually is one.
+    public var isRemaster: Bool { (name + " " + album).contains(#/(?i)\bremaster(ed)?\b|\banniversary edition\b/#) }
 }
 
 /// How loosely two tracks may differ and still count as the same song.
@@ -123,8 +126,10 @@ public func findCrossPlaylist(_ playlists: [Playlist], options: MatchOptions = .
 }
 
 /// Library songs that are the same song (same matching rules), one group per song, with the copy
-/// to keep first: the one in the most playlists, then an album's copy over a single's or EP's,
-/// then the most played, then the first in the library.
+/// to keep first: the one in the most playlists, then a remaster or anniversary edition over the
+/// original, then an album's copy over a single's or EP's, then the most played, then the first in
+/// the library. Quality and release date can't decide: Music reports the same bit rate for every
+/// Apple Music copy, and reissues keep the original release date.
 public func findLibraryDuplicates(_ songs: [LibrarySong], playlistCount: [Int: Int] = [:], options: MatchOptions = .init()) -> [[LibrarySong]] {
     var groups: [String: [(first: Keyed, songs: [LibrarySong])]] = [:]
     for s in songs {
@@ -135,8 +140,8 @@ public func findLibraryDuplicates(_ songs: [LibrarySong], playlistCount: [Int: I
             groups[k.bucket, default: []].append((k, [s]))
         }
     }
-    func rank(_ s: LibrarySong, _ order: Int) -> (Int, Int, Int, Int) {
-        (-(playlistCount[s.id] ?? 0), s.isSingleOrEP ? 1 : 0, -s.playedCount, order)
+    func rank(_ s: LibrarySong, _ order: Int) -> (Int, Int, Int, Int, Int) {
+        (-(playlistCount[s.id] ?? 0), s.isRemaster ? 0 : 1, s.isSingleOrEP ? 1 : 0, -s.playedCount, order)
     }
     return groups.values.joined().map(\.songs)
         .filter { $0.count > 1 }
