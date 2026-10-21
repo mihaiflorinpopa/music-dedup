@@ -1,0 +1,89 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: write
+
+# One run per branch at a time, so two releases never race. A newer push cancels
+# an older branch build. On main, a running build finishes, but a newer push
+# replaces one still waiting; the release still happens, since the next run
+# sees the untagged VERSION.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    # Branches in this repo build on push; pull requests only add a build for forks.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    # Pinned so releases don't change Xcode and SDK when GitHub moves macos-latest.
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history for the build number and existing tags
+          # No step pushes with git, so the write token isn't left in .git/config.
+          persist-credentials: false
+      - name: Run tests
+        run: swift test
+      - name: Build app and disk image
+        run: ./scripts/build-dmg.sh
+      - name: Check bundle resources
+        run: |
+          APP="build/Music Dedup.app"
+          test -s "$APP/Contents/Resources/AppIcon.icns"
+          test -s "$APP/Contents/Resources/Assets.car"
+          test -s "$APP/Contents/Resources/scan.js"
+          test -s "$APP/Contents/Resources/remove.js"
+          plutil -lint "$APP/Contents/Info.plist"
+      - name: Check signature and SDK
+        run: |
+          codesign --verify --deep --strict "build/Music Dedup.app"
+          # macOS gives an app the behavior of the SDK it records, so it must be the one it was built with.
+          xcrun vtool -show-build "build/Music Dedup.app/Contents/MacOS/MusicDedup" | grep " sdk $(xcrun --show-sdk-version)$"
+      - name: Smoke-test app launch
+        run: |
+          test -d "build/Music Dedup.app/Contents/Frameworks/Sparkle.framework"
+          find .build/artifacts -type f -name sign_update | grep -q .
+          "build/Music Dedup.app/Contents/MacOS/MusicDedup" & PID=$!
+          sleep 5
+          kill -0 "$PID" # still running, so Sparkle and the app loaded
+          kill "$PID"
+      - name: Sign update and write appcast
+        if: env.HAS_SPARKLE_KEY == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The notes GitHub generates for the release, as HTML for the update dialog.
+          # Without them the update still publishes, just with no notes.
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="v$(tr -d '[:space:]' < VERSION)" -f target_commitish="$GITHUB_SHA" --jq .body > build/release-notes.md \
+            && gh api markdown -F text=@build/release-notes.md -f mode=gfm -f context="$GITHUB_REPOSITORY" > build/release-notes.html \
+            || rm -f build/release-notes.html
+          ./scripts/make-appcast.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: MusicDedup-dmg
+          path: build/MusicDedup-*.dmg
+          archive: false # a .dmg is compressed already
+          retention-days: 14 # releases keep their own copy
+      # Bumping VERSION on main publishes a release; other pushes to main skip it.
+      # Only with the Sparkle key: a release without its appcast could never update itself.
+      - name: Publish release for a new version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.HAS_SPARKLE_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v$(tr -d '[:space:]' < VERSION)"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG already released"
+          else
+            gh release create "$TAG" build/MusicDedup-*.dmg build/appcast.xml --target "$GITHUB_SHA" --title "Music Dedup $TAG" --generate-notes
+          fi

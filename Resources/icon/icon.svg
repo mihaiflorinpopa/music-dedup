@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20b79c"/>
+      <stop offset="1" stop-color="#0c766b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <!-- an eighth note: head, stem, flag -->
+    <g id="note">
+      <ellipse cx="400" cy="690" rx="110" ry="82" transform="rotate(-22 400 690)"/>
+      <rect x="478" y="300" width="44" height="400" rx="8"/>
+      <path d="M500 300 h22 c0 80 128 110 118 240 c-15 -70 -60 -100 -118 -100 z"/>
+    </g>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)" filter="url(#shadow)"/>
+
+  <!-- The same note twice, side by side and apart: they must not overlap, because
+       macOS 26's dark and tinted icon styles draw the glyph in one solid color. -->
+  <g fill="#ffffff">
+    <use xlink:href="#note" transform="translate(31.2 176) scale(0.72)"/>
+    <use xlink:href="#note" transform="translate(323.2 76) scale(0.72)"/>
+  </g>
+</svg>

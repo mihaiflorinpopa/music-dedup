@@ -1,0 +1,24 @@
+name: Bug report
+description: Something in Music Dedup doesn't work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. For a wrong match, include both songs' titles, artists and lengths.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Music Dedup and macOS versions
+      placeholder: "Music Dedup 0.1.0, macOS 27.2"
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message
+      description: The red text at the bottom of the window, if any.
+      render: shell

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    <key>CFBundleName</key>
+    <string>Music Dedup</string>
+    <key>CFBundleDisplayName</key>
+    <string>Music Dedup</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.mihaiflorinpopa.music-dedup</string>
+    <key>CFBundleExecutable</key>
+    <string>MusicDedup</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>MusicDedup</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Music Dedup reads your playlists in the Music app and removes the duplicate entries you confirm.</string>
+    <key>SUFeedURL</key>
+    <string>https://github.com/mihaiflorinpopa/music-dedup/releases/latest/download/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
+    <true/>
+    <key>SURequireSignedFeed</key>
+    <true/>
+    <key>NSSupportsSuddenTermination</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Mihai Florin Popa. Free and open source under the MIT License.</string>
+</dict>
+</plist>

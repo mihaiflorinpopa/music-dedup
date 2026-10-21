@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The glyph from icon.svg, scaled from its 824-point tile to the full 1024-point canvas.
+       One solid color, with no overlap: macOS 26's dark and tinted styles flatten the glyph. -->
+  <g transform="scale(1.24272) translate(-100 -100)" fill="#ffffff">
+    <g transform="translate(31.2 176) scale(0.72)">
+      <ellipse cx="400" cy="690" rx="110" ry="82" transform="rotate(-22 400 690)"/>
+      <rect x="478" y="300" width="44" height="400" rx="8"/>
+      <path d="M500 300 h22 c0 80 128 110 118 240 c-15 -70 -60 -100 -118 -100 z"/>
+    </g>
+    <g transform="translate(323.2 76) scale(0.72)">
+      <ellipse cx="400" cy="690" rx="110" ry="82" transform="rotate(-22 400 690)"/>
+      <rect x="478" y="300" width="44" height="400" rx="8"/>
+      <path d="M500 300 h22 c0 80 128 110 118 240 c-15 -70 -60 -100 -118 -100 z"/>
+    </g>
+  </g>
+</svg>

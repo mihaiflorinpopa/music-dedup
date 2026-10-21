@@ -1,0 +1,17 @@
+// Prints the user's own playlists (no smart, Genius, folder or special ones) as JSON.
+// Each property is fetched for all items at once: one Apple event per property, not per track.
+function run() {
+  const P = Application('Music').userPlaylists
+  const ids = P.persistentID(), names = P.name(), smart = P.smart(), genius = P.genius(), kinds = P.specialKind()
+  const out = []
+  ids.forEach((id, i) => {
+    if (smart[i] || genius[i] || kinds[i] !== 'none') return
+    const T = P[i].tracks
+    const tid = T.databaseID(), tn = T.name(), ta = T.artist(), td = T.duration()
+    out.push({
+      id, name: names[i],
+      tracks: tid.map((x, j) => ({ id: x, name: tn[j] || '', artist: ta[j] || '', duration: td[j] || 0 })),
+    })
+  })
+  return JSON.stringify(out)
+}
