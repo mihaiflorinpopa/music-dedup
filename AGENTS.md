@@ -6,23 +6,24 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 
 - `swift test` runs the MusicDedupCore tests.
 - `./scripts/build-app.sh` builds `build/Music Dedup.app` (universal, ad-hoc signed). `./scripts/build-dmg.sh` also makes the .dmg.
-- `osascript -l JavaScript Resources/scan.js` prints, as JSON, what the app reads from Music. It changes nothing.
-- Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist.
+- `osascript -l JavaScript Resources/scan.js` and `Resources/library.js` print, as JSON, what the app reads from Music. They change nothing.
+- Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist. Test `collect.js` with a throwaway playlist name, never "Music Dedup: Duplicates", and delete that playlist afterwards.
+- zsh doesn't split unquoted variables into words, so `$IDS` reaches a script as one argument. Pass database IDs as separate arguments (or `${=IDS}`).
 - Universal builds made with Xcode 27 (Swift 6.4) record `sdk 14.0`, the deployment target, and warn that x86_64 is deprecated. CI (Xcode 26) records the real SDK and checks it.
 
 ## Layout
 
-- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules and `MatchOptions`. Tests are in `Tests/MusicDedupCoreTests`.
-- `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `Updater` (Sparkle).
-- `Resources/`: Info.plist, `scan.js` and `remove.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
+- `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
+- `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `Updater` (Sparkle).
+- `Resources/`: Info.plist, `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
 
 ## Rules
 
 - Follow the upstream documentation of every component, for the version the project uses: Apple's (SwiftUI, Observation, the Music app's scripting dictionary from `sdef /System/Applications/Music.app`, the JavaScript for Automation release notes, the HIG), Sparkle's, SwiftPM's and GitHub Actions'. Read it before changing how a component is used, quote it in the pull request, and say plainly when something is a workaround the docs don't describe. Apple's pages are rendered with JavaScript, so fetch their JSON: `https://developer.apple.com/tutorials/data/documentation/<path>.json`, and `…/tutorials/data/design/human-interface-guidelines/<page>.json` for the HIG. The SDK headers (`xcrun --show-sdk-path`) settle availability and deprecation.
-- Only remove playlist entries (`delete` on a track of a `user playlist`), never library tracks. The user confirms every removal, and `remove.js` checks every position against the scan before it removes anything.
-- Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track.
+- Only remove playlist entries (`delete` on a track of a `user playlist`), never library tracks. The user confirms every removal, and `remove.js` checks every position against the scan before it removes anything. Library duplicates are only added to the "Music Dedup: Duplicates" playlist (`collect.js`); the user deletes them from the library in Music.
+- Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track. A bulk get fails with "Can't get object" on an empty playlist, so check `tracks.length` first.
 - The matching defaults stay spotify-dedup's: the same database ID, or the same lowercased name and first artist with lengths less than 2 seconds apart. New rules are options, off by default.
-- No background work: Music is read only on Scan and after a removal.
+- No background work: Music is read only on Scan and after a removal, and written only on a confirmed removal or an add to the duplicates playlist.
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
 - Sign from the inside out. Never use `codesign --deep`.
@@ -41,6 +42,8 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 Ask the maintainer before revisiting these.
 
 - The Music app's scripting dictionary, not the Apple Music API or MusicKit. The API has no way to remove playlist entries (Apple staff on the developer forums), and MusicKit's `MusicLibrary.edit` only changes playlists its own app created. So the app is macOS only, and Sync Library carries changes to other devices.
+- The app never deletes library songs. It collects the extra copies in "Music Dedup: Duplicates" for the user to delete in Music, as Dupin does with cloud songs. Apple's guide says deleting a library song doesn't delete it from playlists unless Music's "Add & Delete Playlist Songs" setting is on. The copy kept is the one in the most playlists, then one whose title or album says Remaster(ed) or Anniversary Edition, then an album's over a " - Single" or " - EP" (suffixes Apple adds, per the Apple Music Style Guide), then the most played. Not quality or release date: every Apple Music copy reports 256 kbps AAC or no bit rate, and reissues keep the original release date.
+- The Music app's scripting dictionary has no ISRC or catalog ID, so matching across releases relies on title, artist and length.
 - macOS 14 minimum, so tabs use `.tabItem` (soft-deprecated in the macOS 27 SDK) rather than `Tab` (macOS 15).
 - Playlist skipping is a tab in the main window, not in Settings: the HIG keeps filters in the view they affect.
 - The name is "Music Dedup" and the repository `music-dedup`. Apple's trademark guidelines don't allow "Apple Music" in a product name, so it's used only descriptively ("for Apple Music"), with Apple's trademark notice.

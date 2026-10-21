@@ -7,6 +7,8 @@ function run() {
   ids.forEach((id, i) => {
     if (smart[i] || genius[i] || kinds[i] !== 'none') return
     const T = P[i].tracks
+    // A bulk get fails with "Can't get object" on an empty playlist, so check its length first.
+    if (T.length === 0) return out.push({ id, name: names[i], tracks: [] })
     const tid = T.databaseID(), tn = T.name(), ta = T.artist(), td = T.duration()
     out.push({
       id, name: names[i],

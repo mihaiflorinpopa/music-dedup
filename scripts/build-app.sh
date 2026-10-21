@@ -11,7 +11,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The scripts that read and change playlists in the Music app.
-cp Resources/scan.js Resources/remove.js "$APP/Contents/Resources/"
+cp Resources/scan.js Resources/remove.js Resources/library.js Resources/collect.js "$APP/Contents/Resources/"
 
 # Version: VERSION is the single source of truth; the build number is the
 # commit count, so every build from main is unique and increasing.

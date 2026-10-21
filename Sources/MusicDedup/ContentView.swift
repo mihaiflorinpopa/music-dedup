@@ -6,11 +6,13 @@ struct ContentView: View {
     @State private var selected: Set<Entry> = []
     @State private var pending: [Entry] = []
     @State private var confirming = false
+    @State private var libraryChecked: Set<Int> = []  // database IDs of library copies to collect
 
     var body: some View {
         TabView {
             withinList.tabItem { Label("Within Playlists", systemImage: "music.note.list") }
             acrossList.tabItem { Label("Across Playlists", systemImage: "square.on.square") }
+            libraryList.tabItem { Label("Library", systemImage: "music.note.house") }
             // Here rather than in Settings: the HIG keeps filters in the view they affect.
             playlistList.tabItem { Label("Playlists", systemImage: "checklist") }
         }
@@ -26,7 +28,7 @@ struct ContentView: View {
                 ContentUnavailableView {
                     Label("Scan Your Playlists", systemImage: "music.note")
                 } description: {
-                    Text("Reads your own playlists from the Music app. Nothing changes until you confirm a removal.")
+                    Text("Reads your own playlists and your library from the Music app. Nothing changes until you confirm.")
                 } actions: {
                     Button("Scan") { Task { await model.scan() } }
                 }
@@ -36,6 +38,9 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 if let error = model.error {
                     Text(error).foregroundStyle(.red).textSelection(.enabled).padding(8)
+                }
+                if let notice = model.notice {
+                    Text(notice).textSelection(.enabled).padding(8)
                 }
                 if !selected.isEmpty {
                     HStack {
@@ -54,6 +59,8 @@ struct ContentView: View {
         // keep only selected entries that are still on screen.
         .onChange(of: model.within) { pruneSelection() }
         .onChange(of: model.across) { pruneSelection() }
+        // Every extra copy starts checked; the first copy of each song is the one that stays.
+        .onChange(of: model.library) { libraryChecked = extraCopies }
         .confirmationDialog("Remove \(pending.count) playlist \(pending.count == 1 ? "entry" : "entries")?",
                             isPresented: $confirming, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
@@ -117,6 +124,56 @@ struct ContentView: View {
         .toggleStyle(.checkbox)
     }
 
+    private var libraryList: some View {
+        List {
+            if model.scanned {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(model.library.isEmpty ? "No song is in your library twice."
+                             : "\(model.library.count) songs are in your library more than once.")
+                        Spacer()
+                        if !model.library.isEmpty {
+                            Button("Check All") { libraryChecked = extraCopies }
+                                .disabled(libraryChecked == extraCopies)
+                            Button("Uncheck All") { libraryChecked = [] }
+                                .disabled(libraryChecked.isEmpty)
+                            Button("Add \(libraryChecked.count) to “\(MusicBridge.duplicatesPlaylist)”") {
+                                Task { await model.collect(Array(libraryChecked)) }
+                            }
+                            .disabled(libraryChecked.isEmpty)
+                        }
+                    }
+                    if !model.library.isEmpty {
+                        Text("The first copy of each song stays. The checked copies go into that playlist, and you delete them from your library in Music. Music Dedup never deletes library songs itself.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            ForEach(model.library, id: \.self) { copies in
+                Section {
+                    ForEach(copies.dropFirst()) { song in
+                        Toggle(isOn: Binding(
+                            get: { libraryChecked.contains(song.id) },
+                            set: { if $0 { libraryChecked.insert(song.id) } else { libraryChecked.remove(song.id) } })) {
+                            // Same album name: Music reports nothing that tells these copies apart.
+                            LibraryRow(title: song.album, song: song, playlists: model.inPlaylists[song.id] ?? [],
+                                       detailPrefix: song.album == copies[0].album ? "Same album as the copy kept" : nil)
+                        }
+                    }
+                } header: {
+                    LibraryRow(title: copies[0].name, song: copies[0], playlists: model.inPlaylists[copies[0].id] ?? [],
+                               detailPrefix: "Keep: \(copies[0].album)")
+                }
+            }
+        }
+        .toggleStyle(.checkbox)
+    }
+
+    /// Every library copy except the one kept of each song.
+    private var extraCopies: Set<Int> {
+        Set(model.library.flatMap { $0.dropFirst().map(\.id) })
+    }
+
     private var playlistList: some View {
         @Bindable var model = model
         return Form {
@@ -161,6 +218,25 @@ struct TrackRow: View {
         VStack(alignment: .leading) {
             Text(track.name)
             Text("\(track.artist) · \(Duration.seconds(track.duration).formatted(.time(pattern: .minuteSecond))) · \(detail)")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// A library copy: its title, then where it's from and how much it's used.
+struct LibraryRow: View {
+    let title: String
+    let song: LibrarySong
+    let playlists: [String]
+    var detailPrefix: String?
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text(title)
+            Text(([detailPrefix, song.artist, Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)),
+                   song.playedCount == 0 ? nil : "\(song.playedCount) \(song.playedCount == 1 ? "play" : "plays")",
+                   playlists.isEmpty ? nil : "in \(playlists.joined(separator: ", "))"] as [String?])
+                .compactMap { $0 }.joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

@@ -59,4 +59,63 @@ final class DedupTests: XCTestCase {
         XCTAssertEqual(stripVersionTags("Part 1 - The Beginning"), "Part 1 - The Beginning")
         XCTAssertEqual(stripVersionTags("Without Me"), "Without Me")
     }
+
+    func testMoreEditionTags() {
+        XCTAssertEqual(stripVersionTags("Song (Deluxe Edition)"), "Song")
+        XCTAssertEqual(stripVersionTags("Song [10th Anniversary Edition]"), "Song")
+        XCTAssertEqual(stripVersionTags("Song (Expanded Edition)"), "Song")
+        XCTAssertEqual(stripVersionTags("Song - LP Version"), "Song")
+        XCTAssertEqual(stripVersionTags("Song (2011 Stereo Mix)"), "Song")
+        XCTAssertEqual(stripVersionTags("Song (Extended Mix)"), "Song (Extended Mix)")
+    }
+
+    func testFoldTextOnlyWhenAsked() {
+        let p = Playlist(id: "P", name: "P", tracks: [
+            t(1, "Rudolph the Red-Nosed Reindeer", "Burl Ives", 130),
+            t(2, "Rudolph the Red Nosed Reindeer", "Burl Ives", 130.4),
+            t(3, "Don’t Stop", "Beyoncé", 200),
+            t(4, "Don't Stop", "Beyonce", 200),
+            t(5, "Rock & Roll", "Band", 100),
+            t(6, "Rock and Roll", "Band", 100),
+        ])
+        XCTAssertTrue(findDuplicates(in: p).isEmpty)
+        XCTAssertEqual(findDuplicates(in: p, options: .init(foldText: true)).map(\.index), [1, 3, 5])
+    }
+
+    func testAnyCreditedArtistOnlyWhenAsked() {
+        let p = Playlist(id: "P", name: "P", tracks: [
+            t(1, "Song (feat. Guest)", "Main", 200),
+            t(2, "Song", "Guest & Main", 200),
+            t(3, "Song", "Someone Else", 200),
+        ])
+        XCTAssertTrue(findDuplicates(in: p).isEmpty)
+        XCTAssertEqual(findDuplicates(in: p, options: .init(anyCreditedArtist: true)).map(\.index), [1])
+    }
+
+    func testLibraryKeepsTheCopyInPlaylistsThenTheAlbumThenTheMostPlayed() {
+        func s(_ id: Int, _ album: String, plays: Int) -> LibrarySong {
+            LibrarySong(id: id, name: "Song", artist: "Artist", duration: 200, album: album, playedCount: plays)
+        }
+        let songs = [s(1, "Song - Single", plays: 50), s(2, "Album", plays: 1), s(3, "Best Of", plays: 0), s(4, "Other", plays: 9)]
+        XCTAssertEqual(findLibraryDuplicates(songs, playlistCount: [3: 1]).map { $0.map(\.id) }, [[3, 4, 2, 1]])
+        XCTAssertEqual(findLibraryDuplicates(songs).map { $0.map(\.id) }, [[4, 2, 3, 1]])
+        XCTAssertTrue(findLibraryDuplicates([s(1, "A", plays: 0), LibrarySong(id: 2, name: "Other", artist: "Artist", duration: 200, album: "A", playedCount: 0)]).isEmpty)
+    }
+
+    func testLibraryPrefersRemastersRightAfterPlaylists() {
+        func s(_ id: Int, _ name: String, _ album: String, plays: Int = 0) -> LibrarySong {
+            LibrarySong(id: id, name: name, artist: "Artist", duration: 200, album: album, playedCount: plays)
+        }
+        let songs = [
+            s(1, "Song", "Album", plays: 9),
+            s(2, "Song", "Album (20th Anniversary Edition)"),
+            s(3, "Song", "Album (Remastered) - Single"),
+        ]
+        XCTAssertEqual(findLibraryDuplicates(songs).map { $0.map(\.id) }, [[2, 3, 1]])
+        XCTAssertEqual(findLibraryDuplicates(songs, playlistCount: [1: 1]).map { $0.map(\.id) }, [[1, 2, 3]])
+        // A remaster named in the title counts too, once Ignore Version Tags groups it with the original.
+        let titled = [s(1, "Song", "Album", plays: 9), s(2, "Song (2011 Remaster)", "Album")]
+        XCTAssertEqual(findLibraryDuplicates(titled, options: .init(ignoreVersionTags: true)).map { $0.map(\.id) }, [[2, 1]])
+        XCTAssertFalse(s(1, "Song", "Remastering the Classics Live").isRemaster)
+    }
 }
