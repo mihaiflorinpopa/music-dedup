@@ -61,7 +61,7 @@ Apple's [Apple Music API](https://developer.apple.com/documentation/applemusicap
 
 Two small JavaScript for Automation scripts do the work: [`scan.js`](Resources/scan.js) reads your playlists, and [`remove.js`](Resources/remove.js) removes the entries you confirmed. Before removing anything, it checks that every entry is still where the scan found it.
 
-Music Dedup does nothing in the background, and nothing leaves your Mac. It talks to Music only when you scan or remove, and checks for updates once a day.
+Music Dedup does nothing in the background, and nothing leaves your Mac. It talks to Music only when you scan or remove, and checks for updates when it opens and once a day.
 
 ## For developers
 

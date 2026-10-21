@@ -61,7 +61,7 @@ struct GeneralSettings: View {
                     Toggle(isOn: $updater.automaticallyChecks) {
                         OptionLabel(
                             title: "Check for Updates Automatically",
-                            detail: "Checks for a new version once a day, and asks before installing it.")
+                            detail: "Checks for a new version when Music Dedup opens and once a day, and asks before installing it.")
                     }
                 }
                 LabeledContent("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")") {
