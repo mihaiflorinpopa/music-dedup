@@ -43,6 +43,8 @@ jobs:
           test -s "$APP/Contents/Resources/remove.js"
           test -s "$APP/Contents/Resources/library.js"
           test -s "$APP/Contents/Resources/collect.js"
+          test -s "$APP/Contents/Resources/Credits.rtf"
+          grep -q "Andy Matuschak" "$APP/Contents/Resources/Sparkle LICENSE.txt"
           plutil -lint "$APP/Contents/Info.plist"
       - name: Check signature and SDK
         run: |

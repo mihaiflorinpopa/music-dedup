@@ -15,7 +15,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 
 - `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, tolerance) and `findLibraryDuplicates` with the keeper order. Tests are in `Tests/MusicDedupCoreTests`.
 - `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `Updater` (Sparkle).
-- `Resources/`: Info.plist, `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
+- `Resources/`: Info.plist, `Credits.rtf` (the About panel's credits, with Sparkle's credit and Apple's trademark notice), `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
 
 ## Rules
 
@@ -27,6 +27,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
 - Sign from the inside out. Never use `codesign --deep`.
+- Third-party code shipped in the app keeps its license notice in the app: `build-app.sh` copies Sparkle's `LICENSE` to `Contents/Resources/Sparkle LICENSE.txt`, and CI checks it.
 - Never weaken or delete tests or assertions to make a check pass.
 - Feature work goes through a pull request, and CI must pass before merging.
 - Commits and pull requests carry no AI-tool attribution: no Co-Authored-By trailers, no "Generated with" lines.
