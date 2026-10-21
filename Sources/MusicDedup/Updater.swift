@@ -21,6 +21,11 @@ final class Updater {
         // Sparkle's SwiftUI example uses assign(to: &$canCheck), which needs @Published.
         canCheckObservation = controller?.updater.publisher(for: \.canCheckForUpdates)
             .sink { [weak self] in self?.canCheck = $0 }
+        // Sparkle's own schedule checks once a day, so also check at launch, as unplug does.
+        // SPUUpdater.h allows this "immediately after starting the updater" when automatic checks are on.
+        if controller?.updater.automaticallyChecksForUpdates == true {
+            controller?.updater.checkForUpdatesInBackground()
+        }
     }
 
     func checkForUpdates() {
