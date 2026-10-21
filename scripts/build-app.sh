@@ -12,6 +12,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The scripts that read and change playlists in the Music app.
 cp Resources/scan.js Resources/remove.js Resources/library.js Resources/collect.js "$APP/Contents/Resources/"
+# Shown by the standard About panel, which loads Credits.rtf from the app's Resources.
+cp Resources/Credits.rtf "$APP/Contents/Resources/"
 
 # Version: VERSION is the single source of truth; the build number is the
 # commit count, so every build from main is unique and increasing.
@@ -53,6 +55,8 @@ if [ ! -d "$SPARKLE" ]; then
     SPARKLE="$(find .build/artifacts -type d -path '*Sparkle.xcframework/macos-*/Sparkle.framework' | head -1)"
 fi
 ditto "$SPARKLE" "$APP/Contents/Frameworks/Sparkle.framework"
+# Sparkle's license asks for its notice in every copy; the framework doesn't carry it.
+cp "$(find .build/artifacts -type f -path '*/Sparkle/LICENSE' | head -1)" "$APP/Contents/Resources/Sparkle LICENSE.txt"
 
 # Updates are verified with this public key. Without it the updater stays off.
 if [ -s Resources/sparkle-public-key.txt ]; then
