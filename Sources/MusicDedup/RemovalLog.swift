@@ -8,7 +8,8 @@ enum RemovalLog {
     // in a subdirectory named with the app's bundle identifier.
     static let url = URL.applicationSupportDirectory.appending(path: "io.github.mihaiflorinpopa.music-dedup/Removal Log.csv")
 
-    static var exists: Bool { FileManager.default.fileExists(atPath: url.path()) }
+    // path() percent-encodes ("Application%20Support"), which no file is called.
+    static var exists: Bool { FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) }
 
     static func removing(_ entries: [Entry]) throws {
         try append(entries.map { ["Removed from playlist", $0.playlistName, String($0.index + 1)] + fields($0.track) })
@@ -25,7 +26,7 @@ enum RemovalLog {
     private static func append(_ rows: [[String]]) throws {
         if !exists {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try Data(csvLine(["Date", "Change", "Playlist", "Position", "Title", "Artist", "Album", "Length", "Database ID"]).utf8).write(to: url)
+            try Data(csvLine(["Date", "Change", "Playlist", "Position", "Title", "Artist", "Album", "Length", "Database ID"]).utf8).write(to: url, options: .withoutOverwriting)  // never wipes a log
         }
         let date = Date.now.formatted(Date.ISO8601FormatStyle(timeZone: .current))
         let file = try FileHandle(forWritingTo: url)
