@@ -65,17 +65,21 @@ public struct LibrarySong: Codable, Hashable, Sendable, Identifiable {
     public let duration: Double  // seconds
     public let album: String
     public let playedCount: Int
+    public let cloudStatus: String
 
-    public init(id: Int, name: String, artist: String, duration: Double, album: String, playedCount: Int) {
+    public init(id: Int, name: String, artist: String, duration: Double, album: String, playedCount: Int, cloudStatus: String = "") {
         self.id = id
         self.name = name
         self.artist = artist
         self.duration = duration
         self.album = album
         self.playedCount = playedCount
+        self.cloudStatus = cloudStatus
     }
 
-    public var track: Track { Track(id: id, name: name, artist: artist, duration: duration, album: album) }
+    public var track: Track { Track(id: id, name: name, artist: artist, duration: duration, album: album, cloudStatus: cloudStatus) }
+
+    public var isUnavailable: Bool { track.isUnavailable }
 
     /// Apple Music adds " - Single" and " - EP" to the titles of those releases (Apple Music Style Guide).
     public var isSingleOrEP: Bool { album.hasSuffix(" - Single") || album.hasSuffix(" - EP") }

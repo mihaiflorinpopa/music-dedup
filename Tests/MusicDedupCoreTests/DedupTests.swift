@@ -189,6 +189,8 @@ final class DedupTests: XCTestCase {
         XCTAssertEqual(findUnavailable(in: p).map(\.index), [0, 3])
         // The same position found as a duplicate and as unavailable is one entry, selected and removed once.
         XCTAssertEqual(Set(findUnavailable(in: p) + findDuplicates(in: p)).count, 2)
+        XCTAssertTrue(LibrarySong(id: 1, name: "Gone", artist: "A", duration: 200, album: "", playedCount: 0, cloudStatus: "no longer available").isUnavailable)
+        XCTAssertFalse(LibrarySong(id: 2, name: "Here", artist: "A", duration: 200, album: "", playedCount: 0, cloudStatus: "subscription").isUnavailable)
     }
 
     func testSameAlbumOnlyWhenAsked() {

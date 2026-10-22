@@ -4,11 +4,11 @@ function run() {
   const T = Application('Music').libraryPlaylists[0].tracks
   if (T.length === 0) return '[]' // a bulk get fails with "Can't get object" when there's nothing to get
   const kind = T.mediaKind(), id = T.databaseID(), name = T.name(), artist = T.artist()
-  const duration = T.duration(), album = T.album(), plays = T.playedCount()
+  const duration = T.duration(), album = T.album(), plays = T.playedCount(), status = T.cloudStatus()
   const out = []
   kind.forEach((k, i) => {
     if (k !== 'song') return
-    out.push({ id: id[i], name: name[i] || '', artist: artist[i] || '', duration: duration[i] || 0, album: album[i] || '', playedCount: plays[i] || 0 })
+    out.push({ id: id[i], name: name[i] || '', artist: artist[i] || '', duration: duration[i] || 0, album: album[i] || '', playedCount: plays[i] || 0, cloudStatus: status[i] || '' })
   })
   return JSON.stringify(out)
 }

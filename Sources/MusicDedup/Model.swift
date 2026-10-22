@@ -11,6 +11,7 @@ final class Model {
     private(set) var unavailable: [[Entry]] = []  // per playlist: entries Apple Music no longer has
     private(set) var librarySongs: [LibrarySong] = []  // every song in the library
     private(set) var library: [[LibrarySong]] = []  // per song: its copies in the library, the one to keep first
+    private(set) var unavailableSongs: [LibrarySong] = []  // library songs Apple Music no longer has
     private(set) var inPlaylists: [Int: [String]] = [:]  // database ID: names of the playlists it's in
     private(set) var scanned = false
     private(set) var busy = false
@@ -165,6 +166,7 @@ final class Model {
             // The duplicates playlist is the app's own; it isn't checked and doesn't count as a place a song is kept.
             playlists = found.filter { $0.name != MusicBridge.duplicatesPlaylist }
             librarySongs = songs
+            unavailableSongs = songs.filter(\.isUnavailable)
             inPlaylists = playlists.reduce(into: [:]) { result, p in
                 for id in Set(p.tracks.map(\.id)) { result[id, default: []].append(p.name) }
             }

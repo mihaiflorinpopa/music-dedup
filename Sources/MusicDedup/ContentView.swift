@@ -6,7 +6,7 @@ struct ContentView: View {
     @State private var selected: Set<Entry> = []
     @State private var pending: [Entry] = []
     @State private var confirming = false
-    @State private var libraryChecked: Set<Int> = []  // database IDs of library copies to collect
+    @State private var libraryChecked: Set<Int> = []  // database IDs of library songs to collect
 
     var body: some View {
         TabView {
@@ -62,7 +62,8 @@ struct ContentView: View {
         .onChange(of: model.across) { pruneSelection() }
         .onChange(of: model.unavailable) { pruneSelection() }
         // Every extra copy starts checked; the first copy of each song is the one that stays.
-        .onChange(of: model.library) { libraryChecked = extraCopies }
+        .onChange(of: model.library) { libraryChecked = suggested }
+        .onChange(of: model.unavailableSongs) { libraryChecked = suggested }
         .confirmationDialog("Remove \(counted(pending.count, "playlist entry", "playlist entries"))?",
                             isPresented: $confirming, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
@@ -156,13 +157,15 @@ struct ContentView: View {
 
     private var libraryList: some View {
         List {
-            if model.scanned && !model.library.isEmpty {
+            if model.scanned && !libraryIsClean {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("\(counted(model.library.count, "song")) \(model.library.count == 1 ? "is" : "are") in your library more than once.")
+                        Text([model.library.isEmpty ? nil : "\(counted(model.library.count, "song")) \(model.library.count == 1 ? "is" : "are") in your library more than once.",
+                              model.unavailableSongs.isEmpty ? nil : "\(counted(model.unavailableSongs.count, "song")) \(model.unavailableSongs.count == 1 ? "is" : "are") no longer available on Apple Music."]
+                            .compactMap { $0 }.joined(separator: " "))
                         Spacer()
-                        Button("Check All") { libraryChecked = extraCopies }
-                            .disabled(libraryChecked == extraCopies)
+                        Button("Check All") { libraryChecked = suggested }
+                            .disabled(libraryChecked == suggested)
                         Button("Uncheck All") { libraryChecked = [] }
                             .disabled(libraryChecked.isEmpty)
                         Button("Add \(libraryChecked.count) to “\(MusicBridge.duplicatesPlaylist)”") {
@@ -170,16 +173,24 @@ struct ContentView: View {
                         }
                         .disabled(libraryChecked.isEmpty)
                     }
-                    Text("The first copy of each song stays. The checked copies go into that playlist, and you delete them from your library in Music. Music Dedup never deletes library songs itself.")
+                    Text("The first copy of each song stays. The checked songs go into that playlist, and you delete them from your library in Music. Music Dedup never deletes library songs itself.")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if !model.unavailableSongs.isEmpty {
+                Section("No Longer Available on Apple Music") {
+                    ForEach(model.unavailableSongs) { song in
+                        Toggle(isOn: isChecked(song.id)) {
+                            LibraryRow(title: song.name, song: song, playlists: model.inPlaylists[song.id] ?? [],
+                                       detailPrefix: song.album.isEmpty ? nil : song.album)
+                        }
+                    }
                 }
             }
             ForEach(model.library, id: \.[0].id) { copies in
                 Section {
                     ForEach(copies.dropFirst()) { song in
-                        Toggle(isOn: Binding(
-                            get: { libraryChecked.contains(song.id) },
-                            set: { if $0 { libraryChecked.insert(song.id) } else { libraryChecked.remove(song.id) } })) {
+                        Toggle(isOn: isChecked(song.id)) {
                             // Same album name: Music reports nothing that tells these copies apart.
                             LibraryRow(title: song.album, song: song, playlists: model.inPlaylists[song.id] ?? [],
                                        detailPrefix: song.album == copies[0].album ? "Same album as the copy kept" : nil)
@@ -195,12 +206,18 @@ struct ContentView: View {
             }
         }
         .toggleStyle(.checkbox)
-        .overlay { emptyState(model.library.isEmpty, "No Duplicates", "No song is in your library twice.") }
+        .overlay { emptyState(libraryIsClean, "No Duplicates", "No song is in your library twice, and Apple Music still has them all.") }
     }
 
-    /// Every library copy except the one kept of each song.
-    private var extraCopies: Set<Int> {
-        Set(model.library.flatMap { $0.dropFirst().map(\.id) })
+    private var libraryIsClean: Bool { model.library.isEmpty && model.unavailableSongs.isEmpty }
+
+    /// Every library copy except the one kept of each song, and every song Apple Music no longer has.
+    private var suggested: Set<Int> {
+        Set(model.library.flatMap { $0.dropFirst().map(\.id) } + model.unavailableSongs.map(\.id))
+    }
+
+    private func isChecked(_ id: Int) -> Binding<Bool> {
+        Binding(get: { libraryChecked.contains(id) }, set: { if $0 { libraryChecked.insert(id) } else { libraryChecked.remove(id) } })
     }
 
     private var playlistList: some View {
