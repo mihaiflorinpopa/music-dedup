@@ -1,0 +1,6 @@
+# Release notes, on GitHub and in the app's update dialog, list only changes users notice.
+# Label everything else (CI, build scripts, version bumps) skip-release-notes.
+changelog:
+  exclude:
+    labels:
+      - skip-release-notes

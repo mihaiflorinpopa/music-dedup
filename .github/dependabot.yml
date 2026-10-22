@@ -6,7 +6,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Replaces the default labels; skip-release-notes keeps these out of release notes.
+    labels: [dependencies, skip-release-notes]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # Replaces the default labels; skip-release-notes keeps these out of release notes.
+    labels: [dependencies, skip-release-notes]

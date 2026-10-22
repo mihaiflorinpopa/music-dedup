@@ -38,6 +38,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Bump `VERSION` and merge to main. The `build` job builds, tests and checks the app; when `VERSION` has no tag yet on a main push, the `release` job signs the .dmg and `appcast.xml` (Sparkle EdDSA, the `SPARKLE_PRIVATE_KEY` secret) and publishes the GitHub release. Merges that don't change `VERSION` don't release.
 - The workflow's token is read-only; only the `release` job gets `contents: write`. It runs in the `release` environment, which only protected branches (main) can use, and the Sparkle key belongs in that environment's secrets. Without the key, the release job fails rather than publish a release that could never update itself.
 - main is protected: pull requests merge only after the `build` check passes.
+- Release notes, on GitHub and in the app's update dialog, are generated from pull request titles. `.github/release.yml` leaves out PRs labelled `skip-release-notes`: label CI, build-script, docs-only and version-bump PRs with it (`gh pr create --label skip-release-notes`). Dependabot labels its own.
 - The build number is the commit count.
 - CI runs on a pinned `macos-26` runner (bump it by hand when GitHub retires it). Actions are pinned to commit SHAs, and Dependabot updates them and Sparkle.
 
