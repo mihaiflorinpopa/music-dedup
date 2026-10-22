@@ -17,6 +17,8 @@ final class Model {
     var notice: String?
 
     private let defaults = UserDefaults.standard
+    private let matcher = Matcher()
+    @ObservationIgnored private var analysis: Task<Void, Never>?
 
     var ignoreVersionTags: Bool {
         get {
@@ -63,7 +65,6 @@ final class Model {
         }
     }
 
-    /// Persistent IDs of the playlists left out of the results.
     /// Pairs marked "Not a Duplicate", stored as "smaller-larger" database IDs.
     var notDuplicates: Set<TrackPair> {
         get {
@@ -81,6 +82,7 @@ final class Model {
         }
     }
 
+    /// Persistent IDs of the playlists left out of the results.
     var skipped: Set<String> {
         get {
             access(keyPath: \.skipped)
@@ -88,7 +90,7 @@ final class Model {
         }
         set {
             withMutation(keyPath: \.skipped) { defaults.set(newValue.sorted(), forKey: "skippedPlaylists") }
-            analyzePlaylists()
+            analyze(includingLibrary: false)  // skipping playlists doesn't change the library groups
         }
     }
 
@@ -103,8 +105,10 @@ final class Model {
         guard !busy else { return }
         error = nil
         busy = true
+        ProcessInfo.processInfo.disableSuddenTermination()
+        defer { ProcessInfo.processInfo.enableSuddenTermination() }
         do {
-            try await Task.detached {
+            try await Task.detached(priority: .userInitiated) {
                 for (id, group) in Dictionary(grouping: entries, by: \.playlistID) {
                     try MusicBridge.remove(group, from: id)
                 }
@@ -121,9 +125,13 @@ final class Model {
         error = nil
         notice = nil
         busy = true
-        defer { busy = false }
+        ProcessInfo.processInfo.disableSuddenTermination()
+        defer {
+            busy = false
+            ProcessInfo.processInfo.enableSuddenTermination()
+        }
         do {
-            let added = try await Task.detached { try MusicBridge.collect(ids) }.value
+            let added = try await Task.detached(priority: .userInitiated) { try MusicBridge.collect(ids) }.value
             notice = "Added \(added) \(added == 1 ? "song" : "songs") to “\(MusicBridge.duplicatesPlaylist)”. In Music, open that playlist, press ⌘A, Control-click and choose Delete from Library."
         } catch {
             self.error = error.localizedDescription
@@ -135,7 +143,7 @@ final class Model {
         notice = nil
         defer { busy = false }
         do {
-            let (found, songs) = try await Task.detached { (try MusicBridge.scan(), try MusicBridge.scanLibrary()) }.value
+            let (found, songs) = try await Task.detached(priority: .userInitiated) { (try MusicBridge.scan(), try MusicBridge.scanLibrary()) }.value
             // The duplicates playlist is the app's own; it isn't checked and doesn't count as a place a song is kept.
             playlists = found.filter { $0.name != MusicBridge.duplicatesPlaylist }
             librarySongs = songs
@@ -144,6 +152,7 @@ final class Model {
             }
             scanned = true
             analyze()
+            await analysis?.value  // still busy until the results are in
         } catch {
             self.error = error.localizedDescription
         }
@@ -154,15 +163,36 @@ final class Model {
                      notDuplicates: notDuplicates)
     }
 
-    private func analyze() {
-        analyzePlaylists()
-        library = findLibraryDuplicates(librarySongs, playlistCount: inPlaylists.mapValues(\.count), options: options)
-    }
-
-    private func analyzePlaylists() {
+    /// Matches in the background, so the window stays responsive: with every option on, a large
+    /// library takes about half a second. A newer analysis makes an unfinished one's results stale.
+    private func analyze(includingLibrary: Bool = true) {
         let options = options, skipped = skipped  // read once, not once per playlist
         let included = playlists.filter { !skipped.contains($0.id) }
-        within = included.map { findDuplicates(in: $0, options: options) }.filter { !$0.isEmpty }
-        across = findCrossPlaylist(included, options: options, duplicates: Array(within.joined()))
+        let songs = includingLibrary ? librarySongs : nil, counts = inPlaylists.mapValues(\.count)
+        analysis?.cancel()
+        analysis = Task {
+            let found = await matcher.analyze(included, library: songs, playlistCount: counts, options: options)
+            guard !Task.isCancelled else { return }
+            within = found.within
+            across = found.across
+            if let library = found.library { self.library = library }
+        }
+    }
+}
+
+/// Runs matching off the main actor, one analysis at a time: Dedup.swift's compiled regexes are
+/// shared, so two analyses mustn't run at once (see AGENTS.md).
+actor Matcher {
+    struct Found: Sendable {
+        let within: [[Entry]]  // per playlist: the entries to remove
+        let across: [[Entry]]  // per song: its entry in each playlist
+        let library: [[LibrarySong]]?  // nil when the library wasn't analyzed
+    }
+
+    func analyze(_ playlists: [Playlist], library songs: [LibrarySong]?, playlistCount: [Int: Int], options: MatchOptions) -> Found {
+        let within = playlists.map { findDuplicates(in: $0, options: options) }.filter { !$0.isEmpty }
+        return Found(within: within,
+                     across: findCrossPlaylist(playlists, options: options, duplicates: Array(within.joined())),
+                     library: songs.map { findLibraryDuplicates($0, playlistCount: playlistCount, options: options) })
     }
 }

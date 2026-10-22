@@ -31,7 +31,7 @@
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Music Dedup reads your playlists in the Music app and removes the duplicate entries you confirm.</string>
+    <string>Music Dedup reads your playlists and library in the Music app, removes the duplicate playlist entries you confirm, and adds the library copies you choose to its “Music Dedup: Duplicates” playlist.</string>
     <key>SUFeedURL</key>
     <string>https://github.com/mihaiflorinpopa/music-dedup/releases/latest/download/appcast.xml</string>
     <key>SUEnableAutomaticChecks</key>
