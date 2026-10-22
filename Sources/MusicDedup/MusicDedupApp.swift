@@ -10,6 +10,10 @@ struct MusicDedupApp: App {
             ContentView(model: model).frame(minWidth: 560, minHeight: 440)
         }
         .commands {
+            CommandGroup(after: .newItem) {
+                Button("Show Removal Log") { NSWorkspace.shared.activateFileViewerSelecting([RemovalLog.url]) }
+                    .disabled(!model.logged)
+            }
             // Sparkle's SwiftUI guide puts "Check for Updates…" in the app menu; the HIG keeps About
             // alone in its group and puts custom items after Settings.
             CommandGroup(after: .appSettings) {

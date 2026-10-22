@@ -9,10 +9,10 @@ function run() {
     const T = P[i].tracks
     // A bulk get fails with "Can't get object" on an empty playlist, so check its length first.
     if (T.length === 0) return out.push({ id, name: names[i], tracks: [] })
-    const tid = T.databaseID(), tn = T.name(), ta = T.artist(), td = T.duration(), tl = T.album()
+    const tid = T.databaseID(), tn = T.name(), ta = T.artist(), td = T.duration(), tl = T.album(), tc = T.cloudStatus()
     out.push({
       id, name: names[i],
-      tracks: tid.map((x, j) => ({ id: x, name: tn[j] || '', artist: ta[j] || '', duration: td[j] || 0, album: tl[j] || '' })),
+      tracks: tid.map((x, j) => ({ id: x, name: tn[j] || '', artist: ta[j] || '', duration: td[j] || 0, album: tl[j] || '', cloudStatus: tc[j] || '' })),
     })
   })
   return JSON.stringify(out)

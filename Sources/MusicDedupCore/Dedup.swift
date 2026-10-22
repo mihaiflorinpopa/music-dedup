@@ -5,15 +5,20 @@ public struct Track: Codable, Hashable, Sendable {
     public let name: String
     public let artist: String
     public let duration: Double  // seconds
-    public let album: String  // shown to tell copies apart; matching doesn't use it
+    public let album: String  // shown to tell copies apart; matching uses it only with sameAlbum
+    public let cloudStatus: String  // Music's "cloud status", such as "subscription" or "no longer available"
 
-    public init(id: Int, name: String, artist: String, duration: Double, album: String = "") {
+    public init(id: Int, name: String, artist: String, duration: Double, album: String = "", cloudStatus: String = "") {
         self.id = id
         self.name = name
         self.artist = artist
         self.duration = duration
         self.album = album
+        self.cloudStatus = cloudStatus
     }
+
+    /// Apple Music removed the song from its catalog, so it can't be played (Apple Support HT204406).
+    public var isUnavailable: Bool { cloudStatus == "no longer available" }
 }
 
 public struct Playlist: Codable, Hashable, Sendable, Identifiable {
@@ -28,7 +33,9 @@ public struct Playlist: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-/// One track at one position in one playlist: the unit that gets removed.
+/// One track at one position in one playlist: the unit that gets removed. Entries are equal when
+/// they're the same position holding the same track, whichever list found them, so one entry
+/// shown in two tabs is selected and removed once.
 public struct Entry: Hashable, Sendable {
     public let playlistID: String
     public let playlistName: String
@@ -38,6 +45,16 @@ public struct Entry: Hashable, Sendable {
     /// For a duplicate inside a playlist: the position of the earlier entry it repeats.
     public var originalIndex: Int?
     public var original: Track?
+
+    public static func == (a: Entry, b: Entry) -> Bool {
+        a.playlistID == b.playlistID && a.index == b.index && a.track.id == b.track.id
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(playlistID)
+        hasher.combine(index)
+        hasher.combine(track.id)
+    }
 }
 
 /// A song in the library, with what decides which copy to keep.
@@ -89,15 +106,18 @@ public struct MatchOptions: Equatable, Sendable {
     public var anyCreditedArtist = false
     /// Largest length difference, in seconds, between two copies of a song.
     public var tolerance: Double = 2
+    /// Match only copies on the same album, like Music's Show Exact Duplicate Items.
+    public var sameAlbum = false
     /// Pairs the user marked "Not a Duplicate".
     public var notDuplicates: Set<TrackPair> = []
 
     public init(ignoreVersionTags: Bool = false, foldText: Bool = false, anyCreditedArtist: Bool = false, tolerance: Double = 2,
-                notDuplicates: Set<TrackPair> = []) {
+                sameAlbum: Bool = false, notDuplicates: Set<TrackPair> = []) {
         self.ignoreVersionTags = ignoreVersionTags
         self.foldText = foldText
         self.anyCreditedArtist = anyCreditedArtist
         self.tolerance = tolerance
+        self.sameAlbum = sameAlbum
         self.notDuplicates = notDuplicates
     }
 
@@ -126,6 +146,14 @@ public func findDuplicates(in playlist: Playlist, options: MatchOptions = .init(
         }
     }
     return dups
+}
+
+/// Entries whose song Apple Music removed from its catalog. They can't be played, so they're
+/// worth removing whatever the matching options say.
+public func findUnavailable(in playlist: Playlist) -> [Entry] {
+    playlist.tracks.enumerated().filter { $0.element.isUnavailable }.map {
+        Entry(playlistID: playlist.id, playlistName: playlist.name, index: $0.offset, track: $0.element, reason: "no longer available")
+    }
 }
 
 /// Songs that sit in more than one playlist (same matching rules), one group per song, with at
@@ -193,7 +221,8 @@ struct Keyed {
 
     init(_ t: Track, _ options: MatchOptions) {
         track = t
-        bucket = options.anyCreditedArtist ? title(t, options) : matchKey(t, options: options)
+        bucket = (options.anyCreditedArtist ? title(t, options) : matchKey(t, options: options))
+            + (options.sameAlbum ? ":" + (options.foldText ? fold(t.album) : t.album.lowercased().trimmingCharacters(in: .whitespaces)) : "")
         artists = options.anyCreditedArtist ? creditedArtists(t, options) : []
     }
 

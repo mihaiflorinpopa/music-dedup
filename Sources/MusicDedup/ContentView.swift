@@ -12,6 +12,7 @@ struct ContentView: View {
         TabView {
             withinList.tabItem { Label("Within Playlists", systemImage: "music.note.list") }
             acrossList.tabItem { Label("Across Playlists", systemImage: "square.on.square") }
+            unavailableList.tabItem { Label("Unavailable", systemImage: "exclamationmark.circle") }
             libraryList.tabItem { Label("Library", systemImage: "music.note.house") }
             // Here rather than in Settings: the HIG keeps filters in the view they affect.
             playlistList.tabItem { Label("Playlists", systemImage: "checklist") }
@@ -59,6 +60,7 @@ struct ContentView: View {
         // keep only selected entries that are still on screen.
         .onChange(of: model.within) { pruneSelection() }
         .onChange(of: model.across) { pruneSelection() }
+        .onChange(of: model.unavailable) { pruneSelection() }
         // Every extra copy starts checked; the first copy of each song is the one that stays.
         .onChange(of: model.library) { libraryChecked = extraCopies }
         .confirmationDialog("Remove \(counted(pending.count, "playlist entry", "playlist entries"))?",
@@ -69,22 +71,33 @@ struct ContentView: View {
             }
         } message: {
             // Not "songs stay in your library": many playlist songs were never added to it.
-            Text("This only takes entries out of playlists. It doesn't delete songs from your library. With Sync Library on, the change reaches your other devices.")
+            Text("This only takes entries out of playlists. It doesn't delete songs from your library. With Sync Library on, the change reaches your other devices. A list of them is saved first: File > Show Removal Log.")
         }
     }
 
     private var withinList: some View {
+        let total = model.within.joined().count
+        return entryList(model.within, summary: total == 0 ? "No duplicates inside any playlist."
+                         : "\(counted(total, "duplicate")) in \(counted(model.within.count, "playlist"))")
+    }
+
+    private var unavailableList: some View {
+        let total = model.unavailable.joined().count
+        return entryList(model.unavailable, summary: total == 0 ? "No playlist has songs that are no longer available."
+                         : "\(counted(total, "song")) in \(counted(model.unavailable.count, "playlist")) \(total == 1 ? "is" : "are") no longer available on Apple Music.")
+    }
+
+    /// Entries to remove, one section per playlist.
+    private func entryList(_ groups: [[Entry]], summary: String) -> some View {
         List {
             if model.scanned {
-                let total = model.within.joined().count
                 HStack {
-                    Text(total == 0 ? "No duplicates inside any playlist."
-                         : "\(counted(total, "duplicate")) in \(counted(model.within.count, "playlist"))")
+                    Text(summary)
                     Spacer()
-                    if total > 0 { Button("Remove All") { confirm(Array(model.within.joined())) } }
+                    if !groups.isEmpty { Button("Remove All") { confirm(Array(groups.joined())) } }
                 }
             }
-            ForEach(model.within, id: \.[0]) { dups in
+            ForEach(groups, id: \.[0]) { dups in
                 Section {
                     ForEach(dups, id: \.index) { d in
                         Toggle(isOn: isSelected(d)) { TrackRow(track: d.track, position: d.index, detail: repeats(d)) }
@@ -213,7 +226,7 @@ struct ContentView: View {
     }
 
     private func pruneSelection() {
-        selected.formIntersection(Set(model.within.joined()).union(model.across.joined()))
+        selected.formIntersection(Set(model.within.joined()).union(model.across.joined()).union(model.unavailable.joined()))
     }
 
     private func skipButton(_ e: Entry) -> some View {

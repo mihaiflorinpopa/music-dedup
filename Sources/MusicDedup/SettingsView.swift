@@ -48,6 +48,11 @@ struct MatchingSettings: View {
                         title: "Match Any Credited Artist",
                         detail: "Treats “Song (feat. Guest)” by Main and “Song” by Guest & Main as one song. Otherwise only the first artist counts.")
                 }
+                Toggle(isOn: $model.sameAlbum) {
+                    OptionLabel(
+                        title: "Same Album Only",
+                        detail: "Counts copies as one song only when they're also on the same album, like Music's Show Exact Duplicate Items. Copies on a single, a compilation or a reissue stay apart.")
+                }
                 Picker(selection: $model.tolerance) {
                     ForEach([1.0, 2, 5, 10], id: \.self) { Text("\(Int($0)) seconds").tag($0) }
                 } label: {

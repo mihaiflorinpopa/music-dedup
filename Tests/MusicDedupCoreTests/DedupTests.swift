@@ -178,4 +178,35 @@ final class DedupTests: XCTestCase {
         XCTAssertTrue(findCrossPlaylist([Playlist(id: "A", name: "A", tracks: [t(1, "Song", "Artist", 200)]), other],
                                         options: .init(notDuplicates: [TrackPair(1, 2)])).isEmpty)
     }
+
+    func testUnavailableFindsOnlyEntriesNoLongerInTheCatalog() {
+        let p = Playlist(id: "P", name: "P", tracks: [
+            Track(id: 1, name: "Gone", artist: "A", duration: 200, cloudStatus: "no longer available"),
+            Track(id: 2, name: "Here", artist: "A", duration: 200, cloudStatus: "subscription"),
+            Track(id: 3, name: "Local", artist: "A", duration: 200, cloudStatus: "ineligible"),
+            Track(id: 1, name: "Gone", artist: "A", duration: 200, cloudStatus: "no longer available"),
+        ])
+        XCTAssertEqual(findUnavailable(in: p).map(\.index), [0, 3])
+        // The same position found as a duplicate and as unavailable is one entry, selected and removed once.
+        XCTAssertEqual(Set(findUnavailable(in: p) + findDuplicates(in: p)).count, 2)
+    }
+
+    func testSameAlbumOnlyWhenAsked() {
+        func a(_ id: Int, _ album: String) -> Track { Track(id: id, name: "Song", artist: "Artist", duration: 200, album: album) }
+        let p = Playlist(id: "P", name: "P", tracks: [a(1, "Album"), a(2, "Album - Single"), a(3, "ALBUM "), a(4, "Album")])
+        XCTAssertEqual(findDuplicates(in: p).map(\.index), [1, 2, 3])
+        XCTAssertEqual(findDuplicates(in: p, options: .init(sameAlbum: true)).map(\.index), [2, 3])
+        // Folding text folds the album too.
+        let q = Playlist(id: "Q", name: "Q", tracks: [a(1, "Café Hits"), a(2, "Cafe Hits")])
+        XCTAssertTrue(findDuplicates(in: q, options: .init(sameAlbum: true)).isEmpty)
+        XCTAssertEqual(findDuplicates(in: q, options: .init(foldText: true, sameAlbum: true)).map(\.index), [1])
+        func s(_ id: Int, _ album: String) -> LibrarySong { LibrarySong(id: id, name: "Song", artist: "Artist", duration: 200, album: album, playedCount: 0) }
+        XCTAssertEqual(findLibraryDuplicates([s(1, "X"), s(2, "Y"), s(3, "X")], options: .init(sameAlbum: true)).map { $0.map(\.id) }, [[1, 3]])
+    }
+
+    func testCSVQuotesOnlyFieldsThatNeedIt() {
+        XCTAssertEqual(csvLine(["a", "b c", ""]), "a,b c,\r\n")
+        XCTAssertEqual(csvLine(["Hello, Goodbye", "Say \"Hi\"", "a\nb", "a\r\nb"]),
+                       "\"Hello, Goodbye\",\"Say \"\"Hi\"\"\",\"a\nb\",\"a\r\nb\"\r\n")
+    }
 }
