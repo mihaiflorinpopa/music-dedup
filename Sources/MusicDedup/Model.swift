@@ -8,11 +8,13 @@ final class Model {
     private(set) var playlists: [Playlist] = []  // every playlist the last scan read
     private(set) var within: [[Entry]] = []  // per playlist: the entries to remove
     private(set) var across: [[Entry]] = []  // per song: its entry in each playlist
+    private(set) var unavailable: [[Entry]] = []  // per playlist: entries Apple Music no longer has
     private(set) var librarySongs: [LibrarySong] = []  // every song in the library
     private(set) var library: [[LibrarySong]] = []  // per song: its copies in the library, the one to keep first
     private(set) var inPlaylists: [Int: [String]] = [:]  // database ID: names of the playlists it's in
     private(set) var scanned = false
     private(set) var busy = false
+    private(set) var logged = RemovalLog.exists
     var error: String?
     var notice: String?
 
@@ -65,6 +67,17 @@ final class Model {
         }
     }
 
+    var sameAlbum: Bool {
+        get {
+            access(keyPath: \.sameAlbum)
+            return defaults.bool(forKey: "sameAlbum")
+        }
+        set {
+            withMutation(keyPath: \.sameAlbum) { defaults.set(newValue, forKey: "sameAlbum") }
+            analyze()
+        }
+    }
+
     /// Pairs marked "Not a Duplicate", stored as "smaller-larger" database IDs.
     var notDuplicates: Set<TrackPair> {
         get {
@@ -108,6 +121,8 @@ final class Model {
         ProcessInfo.processInfo.disableSuddenTermination()
         defer { ProcessInfo.processInfo.enableSuddenTermination() }
         do {
+            try RemovalLog.removing(entries)  // nothing is removed unless it's logged first
+            logged = true
             try await Task.detached(priority: .userInitiated) {
                 for (id, group) in Dictionary(grouping: entries, by: \.playlistID) {
                     try MusicBridge.remove(group, from: id)
@@ -131,6 +146,9 @@ final class Model {
             ProcessInfo.processInfo.enableSuddenTermination()
         }
         do {
+            let wanted = Set(ids)
+            try RemovalLog.collecting(librarySongs.filter { wanted.contains($0.id) })
+            logged = true
             let added = try await Task.detached(priority: .userInitiated) { try MusicBridge.collect(ids) }.value
             notice = "Added \(added) \(added == 1 ? "song" : "songs") to “\(MusicBridge.duplicatesPlaylist)”. In Music, open that playlist, press ⌘A, Control-click and choose Delete from Library."
         } catch {
@@ -160,7 +178,7 @@ final class Model {
 
     private var options: MatchOptions {
         MatchOptions(ignoreVersionTags: ignoreVersionTags, foldText: foldText, anyCreditedArtist: anyCreditedArtist, tolerance: tolerance,
-                     notDuplicates: notDuplicates)
+                     sameAlbum: sameAlbum, notDuplicates: notDuplicates)
     }
 
     /// Matches in the background, so the window stays responsive: with every option on, a large
@@ -175,6 +193,7 @@ final class Model {
             guard !Task.isCancelled else { return }
             within = found.within
             across = found.across
+            unavailable = found.unavailable
             if let library = found.library { self.library = library }
         }
     }
@@ -186,6 +205,7 @@ actor Matcher {
     struct Found: Sendable {
         let within: [[Entry]]  // per playlist: the entries to remove
         let across: [[Entry]]  // per song: its entry in each playlist
+        let unavailable: [[Entry]]  // per playlist: entries Apple Music no longer has
         let library: [[LibrarySong]]?  // nil when the library wasn't analyzed
     }
 
@@ -193,6 +213,7 @@ actor Matcher {
         let within = playlists.map { findDuplicates(in: $0, options: options) }.filter { !$0.isEmpty }
         return Found(within: within,
                      across: findCrossPlaylist(playlists, options: options, duplicates: Array(within.joined())),
+                     unavailable: playlists.map(findUnavailable).filter { !$0.isEmpty },
                      library: songs.map { findLibraryDuplicates($0, playlistCount: playlistCount, options: options) })
     }
 }
