@@ -77,20 +77,24 @@ struct ContentView: View {
 
     private var withinList: some View {
         let total = model.within.joined().count
-        return entryList(model.within, summary: total == 0 ? "No duplicates inside any playlist."
-                         : "\(counted(total, "duplicate")) in \(counted(model.within.count, "playlist"))")
+        return entryList(model.within, summary: "\(counted(total, "duplicate")) in \(counted(model.within.count, "playlist"))")
+            .overlay { emptyState(model.within.isEmpty, "No Duplicates", "No song is in a playlist twice.") }
     }
 
     private var unavailableList: some View {
         let total = model.unavailable.joined().count
-        return entryList(model.unavailable, summary: total == 0 ? "No playlist has songs that are no longer available."
-                         : "\(counted(total, "song")) in \(counted(model.unavailable.count, "playlist")) \(total == 1 ? "is" : "are") no longer available on Apple Music.")
+        return entryList(model.unavailable,
+                         summary: "\(counted(total, "song")) in \(counted(model.unavailable.count, "playlist")) \(total == 1 ? "is" : "are") no longer available on Apple Music.")
+            .overlay {
+                emptyState(model.unavailable.isEmpty, "Nothing Unavailable", "No song in your playlists has been removed from Apple Music.",
+                           matching: false)
+            }
     }
 
     /// Entries to remove, one section per playlist.
     private func entryList(_ groups: [[Entry]], summary: String) -> some View {
         List {
-            if model.scanned {
+            if model.scanned && !groups.isEmpty {
                 HStack {
                     Text(summary)
                     Spacer()
@@ -124,7 +128,6 @@ struct ContentView: View {
 
     private var acrossList: some View {
         List {
-            if model.scanned && model.across.isEmpty { Text("No song is in more than one playlist.") }
             ForEach(model.across, id: \.[0]) { group in
                 Section {
                     ForEach(group, id: \.playlistID) { e in
@@ -148,31 +151,27 @@ struct ContentView: View {
             }
         }
         .toggleStyle(.checkbox)
+        .overlay { emptyState(model.across.isEmpty, "No Duplicates", "No song is in more than one playlist.") }
     }
 
     private var libraryList: some View {
         List {
-            if model.scanned {
+            if model.scanned && !model.library.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(model.library.isEmpty ? "No song is in your library twice."
-                             : "\(counted(model.library.count, "song")) \(model.library.count == 1 ? "is" : "are") in your library more than once.")
+                        Text("\(counted(model.library.count, "song")) \(model.library.count == 1 ? "is" : "are") in your library more than once.")
                         Spacer()
-                        if !model.library.isEmpty {
-                            Button("Check All") { libraryChecked = extraCopies }
-                                .disabled(libraryChecked == extraCopies)
-                            Button("Uncheck All") { libraryChecked = [] }
-                                .disabled(libraryChecked.isEmpty)
-                            Button("Add \(libraryChecked.count) to “\(MusicBridge.duplicatesPlaylist)”") {
-                                Task { await model.collect(Array(libraryChecked)) }
-                            }
+                        Button("Check All") { libraryChecked = extraCopies }
+                            .disabled(libraryChecked == extraCopies)
+                        Button("Uncheck All") { libraryChecked = [] }
                             .disabled(libraryChecked.isEmpty)
+                        Button("Add \(libraryChecked.count) to “\(MusicBridge.duplicatesPlaylist)”") {
+                            Task { await model.collect(Array(libraryChecked)) }
                         }
+                        .disabled(libraryChecked.isEmpty)
                     }
-                    if !model.library.isEmpty {
-                        Text("The first copy of each song stays. The checked copies go into that playlist, and you delete them from your library in Music. Music Dedup never deletes library songs itself.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+                    Text("The first copy of each song stays. The checked copies go into that playlist, and you delete them from your library in Music. Music Dedup never deletes library songs itself.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             ForEach(model.library, id: \.[0].id) { copies in
@@ -196,6 +195,7 @@ struct ContentView: View {
             }
         }
         .toggleStyle(.checkbox)
+        .overlay { emptyState(model.library.isEmpty, "No Duplicates", "No song is in your library twice.") }
     }
 
     /// Every library copy except the one kept of each song.
@@ -219,6 +219,21 @@ struct ContentView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Takes the place of a tab's list when the last scan found nothing for it.
+    @ViewBuilder
+    private func emptyState(_ isEmpty: Bool, _ title: String, _ description: String, matching: Bool = true) -> some View {
+        if model.scanned && !model.busy && isEmpty {
+            ContentUnavailableView {
+                Label(title, systemImage: "checkmark.circle")
+            } description: {
+                Text(description)
+            } actions: {
+                // The HIG (Writing): an empty state shows what people can do next, with a button.
+                if matching { SettingsLink { Text("Matching Settings…") } }
+            }
+        }
     }
 
     private func isSelected(_ e: Entry) -> Binding<Bool> {
