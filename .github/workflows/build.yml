@@ -112,9 +112,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build.outputs.release-tag }}
         run: |
-          # The notes GitHub generates for the release, as HTML for the update dialog.
-          # Without them the update still publishes, just with no notes.
-          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" --jq .body > build/release-notes.md \
+          # The notes GitHub generates for the release, as HTML for the update dialog. The dialog
+          # is for users, so each line keeps only the change: no author, pull request link,
+          # "Full Changelog" link or config comment. The GitHub release keeps GitHub's full notes.
+          # Without notes the update still publishes, just with none.
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" --jq .body \
+            | sed -E -e 's/ by @[^ ]+ in https:\/\/github\.com\/[^ ]+$//' -e '/^\*\*Full Changelog\*\*/d' -e '/^<!--.*-->$/d' > build/release-notes.md \
             && gh api markdown -F text=@build/release-notes.md -f mode=gfm -f context="$GITHUB_REPOSITORY" > build/release-notes.html \
             || rm -f build/release-notes.html
           ./scripts/make-appcast.sh
