@@ -15,7 +15,7 @@ It's free, open source (MIT) and runs on macOS 14 or later. With Sync Library tu
 1. Download `MusicDedup-<version>.dmg` from [Releases](../../releases/latest).
 2. Open it and drag Music Dedup into Applications.
 3. Open Music Dedup. macOS will warn that it can't check the app, because Music Dedup isn't notarized by Apple. Go to **System Settings > Privacy & Security**, scroll down and click **Open Anyway**.
-4. The first time you scan, macOS asks to let Music Dedup control Music. Click **Allow**.
+4. The first time you scan, macOS asks to let Music Dedup control Music. Click **Allow**. macOS may ask again after an update, because Music Dedup isn't signed with a Developer ID.
 
 You only need steps 3 and 4 once. After that, Music Dedup updates itself.
 
@@ -55,7 +55,7 @@ Only playlists you made are checked, and your library. Smart playlists, Genius p
 
 ## If something goes wrong
 
-- **"Not authorized to send Apple events to Music."** Turn on Music Dedup in **System Settings > Privacy & Security > Automation**.
+- **"Music Dedup isn't allowed to control Music."** Turn on Music Dedup in **System Settings > Privacy & Security > Automation**, then scan again.
 - **"Playlist … changed since the scan."** The playlist changed in Music, or on another device, after you scanned. Nothing was removed. Scan again.
 - **Removing from a playlist fails.** It may be a playlist you follow rather than one you made. Skip it in the Playlists tab.
 - **To put a song back,** add it to the playlist again in Music.

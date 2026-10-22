@@ -50,6 +50,10 @@ enum MusicBridge {
         guard p.terminationStatus == 0 else {
             let message = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            // errAEEventNotPermitted (-1743, AppleEvents.h): the user turned off our access to Music.
+            if message.contains("-1743") {
+                throw Failure(errorDescription: "Music Dedup isn't allowed to control Music. Turn it on in System Settings > Privacy & Security > Automation, then scan again.")
+            }
             throw Failure(errorDescription: message.isEmpty ? "osascript exited with status \(p.terminationStatus)." : message)
         }
         return data

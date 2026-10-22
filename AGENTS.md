@@ -9,7 +9,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - `osascript -l JavaScript Resources/scan.js` and `Resources/library.js` print, as JSON, what the app reads from Music. They change nothing.
 - Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist. Test `collect.js` with a throwaway playlist name, never "Music Dedup: Duplicates", and delete that playlist afterwards.
 - zsh doesn't split unquoted variables into words, so `$IDS` reaches a script as one argument. Pass database IDs as separate arguments (or `${=IDS}`).
-- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` passes the real SDK to the linker with `-platform_version` and fails if the binary records anything else; CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
+- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` checks the SDK the binary records and, only if it's wrong, relinks with `-platform_version` (Swift 6.3, CI's Xcode 26, records it right and hands linker flags to clang, which rejects that one); it fails if the binary still records another SDK, and CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
 
 ## Layout
 
@@ -24,7 +24,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track. A bulk get fails with "Can't get object" on an empty playlist, so check `tracks.length` first.
 - The matching defaults stay spotify-dedup's: the same database ID, or the same lowercased name and first artist with lengths less than 2 seconds apart. New rules are options, off by default.
 - No background work: Music is read only on Scan and after a removal, and written only on a confirmed removal or an add to the duplicates playlist.
-- Matching runs on one thread at a time (the main actor): `Dedup.swift` compiles its regexes once into `nonisolated(unsafe)` globals, since building a `Regex` per call made a settings change take seconds. Move matching off the main actor only behind a single serial executor.
+- Matching runs on one thread at a time, in the `Matcher` actor (in `Model.swift`), off the main actor: `Dedup.swift` compiles its regexes once into `nonisolated(unsafe)` globals, since building a `Regex` per call made a settings change take seconds, and with every option on a large library still takes about half a second, more than Apple's 250 ms hang threshold. Never call the matching functions from anywhere else in the app.
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
 - Sign from the inside out. Never use `codesign --deep`.
