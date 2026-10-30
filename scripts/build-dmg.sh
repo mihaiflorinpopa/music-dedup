@@ -15,8 +15,9 @@ mkdir -p "$STAGING"
 cp -R "build/Music Dedup.app" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 
-# APFS with LZFSE compression, as Sparkle recommends for disk images.
-hdiutil create -volname "Music Dedup" -srcfolder "$STAGING" -fs APFS -format ULFO -ov "$DMG"
+# APFS with LZFSE compression, as Sparkle recommends for disk images. diskutil image
+# (macOS 26 and later) replaces hdiutil, which macOS 27 deprecates (man hdiutil).
+diskutil image create from --format ULFO --volumeName "Music Dedup" "$STAGING" "$DMG"
 rm -rf "$STAGING"
 
 echo "Built $DMG"

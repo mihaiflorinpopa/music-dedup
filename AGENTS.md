@@ -5,11 +5,11 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 ## Build and test
 
 - `swift test` runs the MusicDedupCore tests.
-- `./scripts/build-app.sh` builds `build/Music Dedup.app` (universal, ad-hoc signed). `./scripts/build-dmg.sh` also makes the .dmg.
+- `./scripts/build-app.sh` builds `build/Music Dedup.app` (universal, ad-hoc signed). `./scripts/build-dmg.sh` also makes the .dmg, with `diskutil image` (macOS 27 deprecates `hdiutil`).
 - `osascript -l JavaScript Resources/scan.js` and `Resources/library.js` print, as JSON, what the app reads from Music. They change nothing.
 - Never test `remove.js` on the user's real playlists. Make a throwaway playlist with one track added twice, remove from it, check the library still has the track, then delete the playlist. Test `collect.js` with a throwaway playlist name, never "Music Dedup: Duplicates", and delete that playlist afterwards.
 - zsh doesn't split unquoted variables into words, so `$IDS` reaches a script as one argument. Pass database IDs as separate arguments (or `${=IDS}`).
-- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` checks the SDK the binary records and, only if it's wrong, relinks with `-platform_version` (Swift 6.3, CI's Xcode 26, records it right and hands linker flags to clang, which rejects that one); it fails if the binary still records another SDK, and CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
+- Swift Build (the default build system from Swift 6.4, Xcode 27) records the deployment target as the SDK version, and macOS then draws the app like macOS 14 (the window title shows, with the tabs in a bar below it). `build-app.sh` checks the SDK the binary records and, only if it's wrong, relinks with `-platform_version` (Swift 6.3, Xcode 26, records it right and hands linker flags to clang, which rejects that one); it fails if the binary still records another SDK, and CI checks it too. Xcode 27 also warns that x86_64 is deprecated.
 
 ## Layout
 
@@ -41,7 +41,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - main is protected: pull requests merge only after the `build` and `CodeQL` checks pass. CodeQL is GitHub's default setup (repository settings, no workflow file) for Actions, JavaScript and Swift, as in unplug.
 - Release notes, on GitHub and in the app's update dialog, are generated from pull request titles, so write titles for users: what changes for them, in plain words ("Settings changes no longer freeze the window", not "Match off the main thread"). The details go in the PR body. The update dialog drops each line's author and link. `.github/release.yml` leaves out PRs labelled `skip-release-notes`: label CI, build-script, docs-only and version-bump PRs with it (`gh pr create --label skip-release-notes`). Dependabot labels its own.
 - The build number is the commit count.
-- CI runs on a pinned `macos-26` runner (bump it by hand when GitHub retires it). Actions are pinned to commit SHAs, and Dependabot updates them and Sparkle.
+- CI runs on a pinned `xcode-27` runner (macOS 27; GitHub names newer macOS images by Xcode version). Bump it by hand to the next Xcode image. Actions are pinned to commit SHAs, and Dependabot updates them and Sparkle.
 
 ## Already decided
 
