@@ -8,32 +8,42 @@ enum MusicBridge {
         let errorDescription: String?
     }
 
-    static func scan() throws -> [Playlist] {
-        try JSONDecoder().decode([Playlist].self, from: run("scan"))
+    static func scan() async throws -> [Playlist] {
+        try JSONDecoder().decode([Playlist].self, from: await run("scan"))
     }
 
     /// Removes the given entries, all from one playlist. Fails without removing anything if the playlist changed since the scan.
-    static func remove(_ entries: [Entry], from playlistID: String) throws {
-        _ = try run("remove", [playlistID] + entries.map { "\($0.index):\($0.track.id)" })
+    static func remove(_ entries: [Entry], from playlistID: String) async throws {
+        _ = try await run("remove", [playlistID] + entries.map { "\($0.index):\($0.track.id)" })
     }
 
     /// The playlist that collects library duplicates for the user to delete in Music.
     static let duplicatesPlaylist = "Music Dedup: Duplicates"
 
-    static func scanLibrary() throws -> [LibrarySong] {
-        try JSONDecoder().decode([LibrarySong].self, from: run("library"))
+    static func scanLibrary() async throws -> [LibrarySong] {
+        try JSONDecoder().decode([LibrarySong].self, from: await run("library"))
     }
 
     /// Adds the given library songs to `duplicatesPlaylist` and returns how many were new there.
-    static func collect(_ ids: [Int]) throws -> Int {
-        let out = String(decoding: try run("collect", [duplicatesPlaylist] + ids.map(String.init)), as: UTF8.self)
+    static func collect(_ ids: [Int]) async throws -> Int {
+        let out = String(decoding: try await run("collect", [duplicatesPlaylist] + ids.map(String.init)), as: UTF8.self)
         guard let added = Int(out.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             throw Failure(errorDescription: "collect.js printed \"\(out)\" instead of a count.")
         }
         return added
     }
 
-    private static func run(_ script: String, _ args: [String] = []) throws -> Data {
+    /// Waits for the script on a Dispatch queue: reading its output blocks a thread until it exits, and
+    /// Swift concurrency's own threads must not block (WWDC21, "Swift concurrency: Behind the scenes").
+    private static func run(_ script: String, _ args: [String] = []) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(with: Result { try runBlocking(script, args) })
+            }
+        }
+    }
+
+    private static func runBlocking(_ script: String, _ args: [String]) throws -> Data {
         guard let path = Bundle.main.path(forResource: script, ofType: "js") else {
             throw Failure(errorDescription: "\(script).js is missing from the app bundle.")
         }
