@@ -14,7 +14,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 ## Layout
 
 - `Sources/MusicDedupCore`: matching (`Dedup.swift`): spotify-dedup's rules, `MatchOptions` (version tags, folded text, any credited artist, same album, tolerance, and the `TrackPair`s marked Not a Duplicate), `findLibraryDuplicates` with the keeper order, and `findUnavailable` (cloud status "no longer available"; `LibrarySong.isUnavailable` is the same for the Library tab). `CSV.swift` writes the removal log's lines. Tests are in `Tests/MusicDedupCoreTests`.
-- `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Unavailable, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`), `RemovalLog` (the CSV of changes, File > Show Removal Log), `Updater` (Sparkle).
+- `Sources/MusicDedup`: the app. `Model` (`@Observable`, settings in UserDefaults), `ContentView` (Within, Across, Unavailable, Library and Playlists tabs), `SettingsView` (the SwiftUI `Settings` scene), `MusicBridge` (runs the scripts with `/usr/bin/osascript`, waiting on a Dispatch queue: Swift concurrency's threads must not block), `RemovalLog` (the CSV of changes, File > Show Removal Log), `Updater` (Sparkle).
 - `Resources/`: Info.plist, `Credits.rtf` (the About panel's credits, with Sparkle's credit and Apple's trademark notice), `scan.js`, `remove.js`, `library.js` and `collect.js` (JavaScript for Automation, copied into the app's Resources), icon (`icon.svg` rendered to `icon-1024.png` for macOS 14 and 15, Icon Composer `MusicDedup.icon` for macOS 26 and later).
 
 ## Rules
@@ -24,7 +24,7 @@ Music Dedup is a macOS app that finds duplicate songs inside and across the user
 - Read Music in bulk: one Apple event per property for a whole playlist (`tracks.name()`), never one per track. A bulk get fails with "Can't get object" on an empty playlist, so check `tracks.length` first.
 - The matching defaults stay spotify-dedup's: the same database ID, or the same lowercased name and first artist with lengths less than 2 seconds apart. New rules are options, off by default.
 - Log every change before making it: `RemovalLog` appends to `~/Library/Application Support/io.github.mihaiflorinpopa.music-dedup/Removal Log.csv` before `remove.js` or `collect.js` runs, and nothing changes if the log can't be written.
-- No background work: Music is read only on Scan and after a removal, and written only on a confirmed removal or an add to the duplicates playlist.
+- No background work: Music is read only on Scan (playlists and library at once) and after a removal (playlists only: removing entries doesn't change library songs), and written only on a confirmed removal or an add to the duplicates playlist.
 - Matching runs on one thread at a time, in the `Matcher` actor (in `Model.swift`), off the main actor: `Dedup.swift` compiles its regexes once into `nonisolated(unsafe)` globals, since building a `Regex` per call made a settings change take seconds, and with every option on a large library still takes about half a second, more than Apple's 250 ms hang threshold. Never call the matching functions from anywhere else in the app.
 - Swift 6 language mode. A `Model` property stored in UserDefaults must call `access(keyPath:)` and `withMutation(keyPath:)`, or its UI goes stale.
 - Keep the app lightweight, the design minimal and the README easy to read.
