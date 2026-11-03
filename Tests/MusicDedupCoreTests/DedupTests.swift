@@ -211,4 +211,12 @@ final class DedupTests: XCTestCase {
         XCTAssertEqual(csvLine(["Hello, Goodbye", "Say \"Hi\"", "a\nb", "a\r\nb"]),
                        "\"Hello, Goodbye\",\"Say \"\"Hi\"\"\",\"a\nb\",\"a\r\nb\"\r\n")
     }
+
+    func testCSVKeepsFormulasAsText() {
+        // Excel runs a cell starting with = as a formula: "=1+1" showed 2.
+        XCTAssertEqual(csvLine(["=1+1", "-", "+44", "@x", "\tx", "＝x", "a=b", "3:45", "", "'x"]),
+                       "'=1+1,'-,'+44,'@x,'\tx,'＝x,a=b,3:45,,'x\r\n")
+        // A field starting with a line break still gets its quotes.
+        XCTAssertEqual(csvLine(["\nx", "\r\nx", "-\"a\""]), "\"'\nx\",\"'\r\nx\",\"'-\"\"a\"\"\"\r\n")
+    }
 }

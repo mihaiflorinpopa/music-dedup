@@ -35,7 +35,7 @@ In the first three tabs, check the entries you want gone, then click **Remove Se
 
 Nothing changes until you confirm. Removing takes the entry out of that playlist only. It doesn't delete the song from your library.
 
-Before any change, Music Dedup saves what it's about to remove, or add to the duplicates playlist, in a removal log. **File > Show Removal Log** shows it in Finder: a CSV file that Numbers or Excel opens, with each entry's playlist, position, title, artist and album. It's written before the change, so it can also list an entry that a failed removal left in place.
+Before any change, Music Dedup saves what it's about to remove, or add to the duplicates playlist, in a removal log. **File > Show Removal Log** shows it in Finder: a CSV file that Numbers or Excel opens, with each entry's playlist, position, title, artist and album. A name starting with = + - or @ gets an apostrophe in front, so the spreadsheet doesn't run it as a formula. It's written before the change, so it can also list an entry that a failed removal left in place.
 
 **Settings…** (⌘,):
 

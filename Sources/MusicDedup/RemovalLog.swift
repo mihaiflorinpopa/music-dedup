@@ -26,12 +26,18 @@ enum RemovalLog {
     private static func append(_ rows: [[String]]) throws {
         if !exists {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try Data(csvLine(["Date", "Change", "Playlist", "Position", "Title", "Artist", "Album", "Length", "Database ID"]).utf8).write(to: url, options: .withoutOverwriting)  // never wipes a log
+            // Microsoft's "Opening CSV UTF-8 files correctly in Excel": Excel reads a CSV as UTF-8
+            // only if it starts with a byte order mark; without one, "Beyoncé" showed as "Beyonc√©".
+            let header = "\u{FEFF}" + csvLine(["Date", "Change", "Playlist", "Position", "Title", "Artist", "Album", "Length", "Database ID"])
+            try Data(header.utf8).write(to: url, options: .withoutOverwriting)  // never wipes a log
         }
         let date = Date.now.formatted(Date.ISO8601FormatStyle(timeZone: .current))
         let file = try FileHandle(forWritingTo: url)
         defer { try? file.close() }
         try file.seekToEnd()
         try file.write(contentsOf: Data(rows.map { csvLine([date] + $0) }.joined().utf8))
+        // FileHandle docs: programs that need the file in a known state call synchronize(). The
+        // change is made only after this returns.
+        try file.synchronize()
     }
 }
